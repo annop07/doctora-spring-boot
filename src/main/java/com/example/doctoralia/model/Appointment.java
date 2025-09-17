@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -33,6 +35,8 @@ public class Appointment {
     private Integer durationMinutes = 30; // Default 30 minutes
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status")
     private AppointmentStatus status = AppointmentStatus.PENDING;
 
     private String notes; //หมายเหตุจากคนไข้
