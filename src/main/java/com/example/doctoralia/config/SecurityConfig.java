@@ -19,6 +19,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        System.out.println("🚀 SecurityConfig is loading...");
+
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -27,19 +29,33 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
                         .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats").permitAll()
-                        .requestMatchers("/api/doctors/{id:[0-9]+}").permitAll()  // เฉพาะ ID ที่เป็นตัวเลข
+                        .requestMatchers("/api/doctors/{id:[0-9]+}").permitAll()  // เฉพาะ ID ตัวเลข
+                        .requestMatchers("/api/availability/doctor/**").permitAll() // ดูตารางเวลาหมอ (public)
                         .requestMatchers("/api/public/**").permitAll()
 
-                        // Protected endpoints (เฉพาะเจาะจงก่อนทั่วไป)
-                        .requestMatchers("/api/doctors/me/**").authenticated()         // เฉพาะ /me
+                        // Protected endpoints - PATIENT
+                        .requestMatchers("/api/appointments").hasRole("PATIENT")           // POST: จองนัด
+                        .requestMatchers("/api/appointments/my").hasRole("PATIENT")        // GET: ดูนัดตัวเอง
+                        .requestMatchers("/api/appointments/*/cancel").hasRole("PATIENT")  // PUT: ยกเลิกนัด
+
+                        // Protected endpoints - DOCTOR
+                        .requestMatchers("/api/doctors/me/**").hasRole("DOCTOR")              // จัดการโปรไฟล์หมอ
+                        .requestMatchers("/api/availability").hasRole("DOCTOR")               // จัดการตารางเวลา (POST)
+                        .requestMatchers("/api/availability/my").hasRole("DOCTOR")            // ดูตารางเวลาตัวเอง
+                        .requestMatchers("/api/availability/*").hasRole("DOCTOR")             // จัดการตารางเวลา (PUT/DELETE)
+                        .requestMatchers("/api/appointments/my-patients").hasRole("DOCTOR")   // ดูนัดคนไข้
+                        .requestMatchers("/api/appointments/*/confirm").hasRole("DOCTOR")     // อนุมัตินัด
+                        .requestMatchers("/api/appointments/*/reject").hasRole("DOCTOR")      // ปฏิเสธนัด
+
+                        // Protected endpoints - ALL AUTHENTICATED
                         .requestMatchers("/api/users/**").authenticated()
-                        .requestMatchers("/api/appointments/**").authenticated()
+
+                        // Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // Default
                         .anyRequest().authenticated()
                 )
-                // เพิ่ม JWT filter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         System.out.println("✅ SecurityConfig loaded successfully!");
