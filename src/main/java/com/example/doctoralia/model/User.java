@@ -28,10 +28,14 @@ public class User {
     @Size(min = 6,message = "Password must be at least 6 characters")
     private String password;
 
-    @Column(name = "first_name")
+
+    @Column(name = "first_name" , nullable = false)
+    @NotBlank(message = "First name is required")
     private String firstName;
 
-    @Column(name = "last_name")
+    @Column(name = "last_name" ,nullable = false)
+    @NotBlank(message = "Last name is required")
+
     private String lastName;
 
     @Enumerated(EnumType.STRING)
@@ -133,9 +137,11 @@ public class User {
 
     // Helper methods
     public String getFullName() {
+
         String first = firstName != null ? firstName : "";
         String last = lastName != null ? lastName : "";
         return (first + " " + last).trim();
+
     }
 
     @Override

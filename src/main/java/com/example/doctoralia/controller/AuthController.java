@@ -41,12 +41,17 @@ public class AuthController {
                         .body(new MessageResponse("Error: Email is already in use!"));
             }
 
-            //สร้าง user ใหม่ (default role เป็น PATIENT)
+
+            //สร้าง user ใหม่
+
             User user = userService.registerUser(
                     request.getEmail(),
                     request.getPassword(),
                     request.getFirstName(),
-                    request.getLastName()
+
+                    request.getLastName(),
+                    request.getRole()
+
             );
 
             logger.info("User registered successfully: {}", request.getEmail());

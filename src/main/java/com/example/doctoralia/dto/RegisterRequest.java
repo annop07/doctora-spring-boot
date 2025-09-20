@@ -1,5 +1,8 @@
 package com.example.doctoralia.dto;
 
+
+import com.example.doctoralia.model.UserRole;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,18 +16,26 @@ public class RegisterRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
+
+    @NotBlank(message = "First name is required")
     private String firstName;
 
+    @NotBlank(message = "Last name is required")
     private String lastName;
 
+    private UserRole role = UserRole.PATIENT;
 
     public RegisterRequest(){}
 
-    public RegisterRequest(String email, String password, String firstName, String lastName) {
+    public RegisterRequest(String email, String password, String firstName, String lastName, UserRole role) {
+
         this.email = email;
         this.password = password;
         this.firstName = firstName;
         this.lastName = lastName;
+
+        this.role = role;
+
     }
 
     public String getEmail() {
@@ -57,6 +68,15 @@ public class RegisterRequest {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
     }
 
 }

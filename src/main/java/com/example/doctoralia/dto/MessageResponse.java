@@ -3,6 +3,7 @@ package com.example.doctoralia.dto;
 public class MessageResponse {
     private String message;
 
+
     public MessageResponse() {
     }
 
@@ -17,4 +18,5 @@ public class MessageResponse {
     public void setMessage(String message) {
         this.message = message;
     }
+
 }

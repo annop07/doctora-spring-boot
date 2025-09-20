@@ -110,4 +110,6 @@ public class JwtUtils {
         byte[] keyBytes = jwtSecret.getBytes();
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
 }
+
