@@ -3,15 +3,18 @@ package com.example.doctoralia.dto;
 public class MessageResponse {
     private String message;
 
-   public MessageResponse() {}
+    public MessageResponse() {
+    }
 
     public MessageResponse(String message) {
-       this.message = message;
+        this.message = message;
     }
 
     public String getMessage() {
-       return message;
+        return message;
     }
 
-    public void setMessage(String message) {}
+    public void setMessage(String message) {
+        this.message = message;
+    }
 }

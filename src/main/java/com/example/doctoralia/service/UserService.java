@@ -33,8 +33,8 @@ public class UserService {
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
+        user.setFirstName(firstName != null && !firstName.trim().isEmpty() ? firstName : null);
+        user.setLastName(lastName != null && !lastName.trim().isEmpty() ? lastName : null);
         user.setRole(UserRole.PATIENT);
 
         User savedUser = userRepository.save(user);
