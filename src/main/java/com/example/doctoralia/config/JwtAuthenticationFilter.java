@@ -32,32 +32,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        String requestURI = request.getRequestURI();
+        logger.info("Processing request: {} {}", request.getMethod(), requestURI);
+        
         try {
             // ดึง JWT token จาก Authorization header
             String jwt = parseJwt(request);
+            
+            if (jwt == null) {
+                logger.warn("No JWT token found in request to: {}", requestURI);
+            } else {
+                logger.info("JWT token found, validating...");
+                
+                if (jwtUtils.validateJwtToken(jwt)) {
+                    // ดึงข้อมูลจาก token
+                    String email = jwtUtils.getEmailFromJwtToken(jwt);
+                    String role = jwtUtils.getRoleFromJwtToken(jwt);
 
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                // ดึงข้อมูลจาก token
-                String email = jwtUtils.getEmailFromJwtToken(jwt);
-                String role = jwtUtils.getRoleFromJwtToken(jwt);
+                    // สร้าง authorities สำหรับ Spring Security
+                    List<SimpleGrantedAuthority> authorities = List.of(
+                            new SimpleGrantedAuthority("ROLE_" + role)
+                    );
 
-                // สร้าง authorities สำหรับ Spring Security
-                List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_" + role)
-                );
+                    // สร้าง Authentication object
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(email, null, authorities);
 
-                // สร้าง Authentication object
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(email, null, authorities);
+                    // ตั้งค่า Security Context
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                // ตั้งค่า Security Context
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                logger.debug("User authenticated: {} with role: {}", email, role);
+                    logger.info("User authenticated: {} with role: {} for request: {}", email, role, requestURI);
+                } else {
+                    logger.error("JWT token validation failed for request: {}", requestURI);
+                }
             }
 
         } catch (Exception e) {
-            logger.error("Cannot set user authentication: ", e);
+            logger.error("Cannot set user authentication for request {}: ", requestURI, e);
         }
 
         // ส่งต่อไปยัง filter ถัดไป
