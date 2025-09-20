@@ -29,13 +29,10 @@ public class User {
     private String password;
 
 
-    @Column(name = "first_name" , nullable = false)
-    @NotBlank(message = "First name is required")
+    @Column(name = "first_name")  // Remove nullable = false
     private String firstName;
 
-    @Column(name = "last_name" ,nullable = false)
-    @NotBlank(message = "Last name is required")
-
+    @Column(name = "last_name")   // Remove nullable = false
     private String lastName;
 
     @Enumerated(EnumType.STRING)
