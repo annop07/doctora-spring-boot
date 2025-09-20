@@ -22,30 +22,13 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-<<<<<<< HEAD
-    //สมัครสมาชิก (default role เป็น PATIENT)
-    public User registerUser(String email, String password, String firstName, String lastName) {
-=======
     //สมัครสมาชิก
     public User registerUser(String email, String password, String firstName, String lastName, UserRole role) {
->>>>>>> origin/feture/Doctor-Management
         //ดูอีเมลซ้ำ
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already exists: " + email);
         }
 
-<<<<<<< HEAD
-        //สร้าง user ใหม่ (กำหนด role เป็น PATIENT เป็นค่าเริ่มต้น)
-        User user = new User();
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
-        user.setFirstName(firstName != null && !firstName.trim().isEmpty() ? firstName : null);
-        user.setLastName(lastName != null && !lastName.trim().isEmpty() ? lastName : null);
-        user.setRole(UserRole.PATIENT);
-
-        User savedUser = userRepository.save(user);
-        logger.info("User registered successfully: {} with default role PATIENT",email);
-=======
         //สร้าง user ใหม่
         User user = new User();
         user.setEmail(email);
@@ -56,7 +39,6 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
         logger.info("User registered successfully: {} with role {}",email,role);
->>>>>>> origin/feture/Doctor-Management
 
         return savedUser;
     }
