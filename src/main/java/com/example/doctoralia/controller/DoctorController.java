@@ -184,44 +184,6 @@ public class DoctorController {
         return response;
     }
 
-    // Public endpoint - no authentication required
-    @GetMapping
-    public ResponseEntity<?> getAllDoctors(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Long specialty,
-            @RequestParam(required = false) BigDecimal minFee,
-            @RequestParam(required = false) BigDecimal maxFee) {
-
-        try {
-            Page<Doctor> doctors;
-
-            if (name != null || specialty != null || minFee != null || maxFee != null) {
-                doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
-            } else {
-                doctors = doctorService.getAllDoctors(page, size, sort);
-            }
-
-            // Convert to response format
-            Map<String, Object> response = new HashMap<>();
-            response.put("doctors", doctors.getContent().stream().map(this::convertToDoctorResponse).toList());
-            response.put("currentPage", doctors.getNumber());
-            response.put("totalItems", doctors.getTotalElements());
-            response.put("totalPages", doctors.getTotalPages());
-            response.put("hasNext", doctors.hasNext());
-            response.put("hasPrevious", doctors.hasPrevious());
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            logger.error("Error getting doctors: ", e);
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Error getting doctors: " + e.getMessage()));
-        }
-    }
-
     // Other methods remain the same...
 
     // Helper method for converting Doctor to response
@@ -250,5 +212,3 @@ public class DoctorController {
         return response;
     }
 }
-
-
