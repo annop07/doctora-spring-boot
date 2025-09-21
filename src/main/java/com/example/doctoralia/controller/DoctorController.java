@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/doctors/me")
+@RequestMapping("/api/doctors") // Change from "/api/doctors/me" to "/api/doctors"
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class DoctorController {
 
@@ -165,23 +165,6 @@ public class DoctorController {
         }
     }
 
-    // Helper methods สำหรับแปลง Entity เป็น Response
-    private Map<String, Object> convertToDoctorResponse(Doctor doctor) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", doctor.getId());
-        response.put("name", doctor.getDoctorName());
-        response.put("firstName", doctor.getUser().getFirstName());
-        response.put("lastName", doctor.getUser().getLastName());
-        response.put("email", doctor.getUser().getEmail());
-        response.put("specialty", convertToSpecialtyResponse(doctor.getSpecialty()));
-        response.put("experienceYears", doctor.getExperienceYears());
-        response.put("consultationFee", doctor.getConsultationFee());
-        response.put("roomNumber", doctor.getRoomNumber());
-        response.put("bio", doctor.getBio() != null ? doctor.getBio().substring(0, Math.min(100, doctor.getBio().length())) + "..." : null);
-
-        return response;
-    }
-
     private Map<String, Object> convertToDoctorDetailResponse(Doctor doctor) {
         Map<String, Object> response = convertToDoctorResponse(doctor);
         response.put("bio", doctor.getBio()); // เอา bio เต็ม
@@ -197,6 +180,72 @@ public class DoctorController {
         response.put("id", specialty.getId());
         response.put("name", specialty.getName());
         response.put("description", specialty.getDescription());
+
+        return response;
+    }
+
+    // Public endpoint - no authentication required
+    @GetMapping
+    public ResponseEntity<?> getAllDoctors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sort,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long specialty,
+            @RequestParam(required = false) BigDecimal minFee,
+            @RequestParam(required = false) BigDecimal maxFee) {
+
+        try {
+            Page<Doctor> doctors;
+
+            if (name != null || specialty != null || minFee != null || maxFee != null) {
+                doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+            } else {
+                doctors = doctorService.getAllDoctors(page, size, sort);
+            }
+
+            // Convert to response format
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctors", doctors.getContent().stream().map(this::convertToDoctorResponse).toList());
+            response.put("currentPage", doctors.getNumber());
+            response.put("totalItems", doctors.getTotalElements());
+            response.put("totalPages", doctors.getTotalPages());
+            response.put("hasNext", doctors.hasNext());
+            response.put("hasPrevious", doctors.hasPrevious());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error getting doctors: ", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Error getting doctors: " + e.getMessage()));
+        }
+    }
+
+    // Other methods remain the same...
+
+    // Helper method for converting Doctor to response
+    private Map<String, Object> convertToDoctorResponse(Doctor doctor) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", doctor.getId());
+        response.put("doctorName", doctor.getDoctorName());
+        response.put("email", doctor.getUser().getEmail());
+
+        // Specialty info
+        Map<String, Object> specialty = new HashMap<>();
+        specialty.put("id", doctor.getSpecialty().getId());
+        specialty.put("name", doctor.getSpecialty().getName());
+        response.put("specialty", specialty);
+
+        response.put("licenseNumber", doctor.getLicenseNumber());
+        response.put("experienceYears", doctor.getExperienceYears());
+        response.put("consultationFee", doctor.getConsultationFee());
+        response.put("roomNumber", doctor.getRoomNumber());
+        response.put("isActive", doctor.getIsActive());
+        response.put("bio", doctor.getBio() != null ?
+                (doctor.getBio().length() > 100 ?
+                        doctor.getBio().substring(0, 100) + "..." :
+                        doctor.getBio()) : null);
 
         return response;
     }

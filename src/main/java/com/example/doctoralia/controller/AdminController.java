@@ -3,6 +3,7 @@ package com.example.doctoralia.controller;
 import com.example.doctoralia.dto.*;
 import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.model.Specialty;
+import com.example.doctoralia.model.User;
 import com.example.doctoralia.service.DoctorService;
 import com.example.doctoralia.service.SpecialtyService;
 import com.example.doctoralia.service.UserService;
@@ -30,6 +31,9 @@ public class AdminController {
 
     @Autowired
     private SpecialtyService specialtyService;
+
+    @Autowired
+    private UserService userService;
 
     //สร้างหมอใหม่ ADMIN
     @PostMapping("/doctors")
@@ -162,6 +166,37 @@ public class AdminController {
             return ResponseEntity.ok(dashboard);
         } catch (Exception e) {
             logger.error("Error getting dashboard: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all users (Admin only) - for admin to see available doctor users
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllUsers() {
+        try {
+            List<User> users = userService.getAllUsers();
+
+            List<Map<String, Object>> response = users.stream()
+                    .map(user -> {
+                        Map<String, Object> userMap = new HashMap<>();
+                        userMap.put("id", user.getId());
+                        userMap.put("email", user.getEmail());
+                        userMap.put("firstName", user.getFirstName());
+                        userMap.put("lastName", user.getLastName());
+                        userMap.put("role", user.getRole());
+                        userMap.put("createdAt", user.getCreatedAt());
+                        return userMap;
+                    })
+                    .toList();
+
+            return ResponseEntity.ok(Map.of("users", response));
+
+        } catch (Exception e) {
+            logger.error("Error getting all users: ", e);
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: " + e.getMessage()));
         }

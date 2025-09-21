@@ -11,9 +11,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -121,5 +123,48 @@ public class UserController {
         }
 
         return null;
+    }
+
+    /**
+     * Get all users for admin (Admin only)
+     */
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllUsersForAdmin(HttpServletRequest request) {
+        try {
+            String jwt = parseJwt(request);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Invalid token"));
+            }
+
+            String role = jwtUtils.getRoleFromJwtToken(jwt);
+            if (!"ADMIN".equals(role)) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Access denied. Admin role required."));
+            }
+
+            List<User> users = userService.getAllUsers();
+
+            List<Map<String, Object>> response = users.stream()
+                    .map(user -> {
+                        Map<String, Object> userMap = new HashMap<>();
+                        userMap.put("id", user.getId());
+                        userMap.put("email", user.getEmail());
+                        userMap.put("firstName", user.getFirstName());
+                        userMap.put("lastName", user.getLastName());
+                        userMap.put("role", user.getRole());
+                        userMap.put("createdAt", user.getCreatedAt());
+                        return userMap;
+                    })
+                    .toList();
+
+            return ResponseEntity.ok(Map.of("users", response));
+
+        } catch (Exception e) {
+            logger.error("Error getting all users: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
     }
 }
