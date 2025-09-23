@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/doctors") // Change from "/api/doctors/me" to "/api/doctors"
+@RequestMapping("/api/doctors")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class DoctorController {
 
@@ -33,8 +33,7 @@ public class DoctorController {
     @Autowired
     private SpecialtyService specialtyService;
 
-
-    //ค้นหาหมอทั้งหมด
+    //ค้นหาหมอทั้งหมด - สำหรับ public use (เฉพาะ active doctors)
     @GetMapping
     public ResponseEntity<?> searchDoctors(
             @RequestParam(defaultValue = "0") int page,
@@ -43,17 +42,30 @@ public class DoctorController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Long specialty,
             @RequestParam(required = false) BigDecimal minFee,
-            @RequestParam(required = false) BigDecimal maxFee) {
-
+            @RequestParam(required = false) BigDecimal maxFee,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
 
         try {
             Page<Doctor> doctors;
 
             if (name != null || specialty != null || minFee != null || maxFee != null) {
-                doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+                if (includeInactive) {
+                    // Admin search - include all doctors
+                    doctors = doctorService.searchDoctorsIncludingInactive(name, specialty, minFee, maxFee, page, size);
+                } else {
+                    // Public search - only active doctors
+                    doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+                }
             } else {
-                doctors = doctorService.getAllDoctors(page, size, sort);
+                if (includeInactive) {
+                    // Admin view - show all doctors
+                    doctors = doctorService.getAllDoctorsIncludingInactive(page, size, sort);
+                } else {
+                    // Public view - only active doctors
+                    doctors = doctorService.getAllDoctors(page, size, sort);
+                }
             }
+
             // แปลงเป็น response format
             Map<String, Object> response = new HashMap<>();
             response.put("doctors", doctors.getContent().stream().map(this::convertToDoctorResponse).toList());
@@ -81,6 +93,7 @@ public class DoctorController {
             if (doctorOpt.isPresent()) {
                 Doctor doctor = doctorOpt.get();
 
+                // For public access, only show active doctors
                 if (!doctor.getIsActive()) {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "Doctor is not available"));
@@ -99,7 +112,7 @@ public class DoctorController {
         }
     }
 
-    //ดึงหมอตาม specialty (Public API)
+    //ดึงหมอตาม specialty (Public API) - เฉพาะ active doctors
     @GetMapping("/specialty/{specialtyId}")
     public ResponseEntity<?> getDoctorsBySpecialty(
             @PathVariable Long specialtyId,
@@ -114,6 +127,7 @@ public class DoctorController {
                         .body(Map.of("error", "Specialty not found"));
             }
 
+            // Only show active doctors for public API
             Page<Doctor> doctors = doctorService.findBySpecialty(specialtyId, page, size);
 
             Map<String, Object> response = new HashMap<>();
@@ -132,10 +146,11 @@ public class DoctorController {
         }
     }
 
-    //ค้นหาตามชื่อ (public API)
+    //ค้นหาตามชื่อ (public API) - เฉพาะ active doctors
     @GetMapping("/search")
     public ResponseEntity<?> searchDoctorsByName(@RequestParam String name) {
         try {
+            // Only show active doctors for public search
             List<Doctor> doctors = doctorService.findByName(name);
 
             List<Map<String, Object>> response = doctors.stream()
@@ -183,8 +198,6 @@ public class DoctorController {
 
         return response;
     }
-
-    // Other methods remain the same...
 
     // Helper method for converting Doctor to response
     private Map<String, Object> convertToDoctorResponse(Doctor doctor) {

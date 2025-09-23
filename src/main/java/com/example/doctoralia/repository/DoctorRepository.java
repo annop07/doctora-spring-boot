@@ -30,16 +30,21 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     //หาหมอที่ active
     List<Doctor> findAllByIsActiveTrue();
 
-    //หาหมอตาม Specialty
+    //หาหมอตาม Specialty (เฉพาะ active)
     List<Doctor> findBySpecialtyAndIsActiveTrue(Specialty specialty);
 
     /**
-     * หาหมอตาม specialty ID
+     * หาหมอตาม specialty ID (เฉพาะ active)
      */
     List<Doctor> findBySpecialtyIdAndIsActiveTrue(Long specialtyId);
 
     /**
-     * ค้นหาหมอตามชื่อ (search ใน firstName และ lastName ของ User)
+     * หาหมอตาม specialty ID (รวม inactive) - สำหรับ admin
+     */
+    Page<Doctor> findBySpecialtyId(Long specialtyId, Pageable pageable);
+
+    /**
+     * ค้นหาหมอตามชื่อ (search ใน firstName และ lastName ของ User) - เฉพาะ active
      */
     @Query("SELECT d FROM Doctor d JOIN d.user u WHERE " +
             "d.isActive = true AND " +
@@ -49,7 +54,16 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     List<Doctor> findByDoctorNameContaining(@Param("name") String name);
 
     /**
-     * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ)
+     * ค้นหาหมอตามชื่อ (รวม inactive) - สำหรับ admin
+     */
+    @Query("SELECT d FROM Doctor d JOIN d.user u WHERE " +
+            "(LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
+            "LOWER(u.firstName) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
+            "LOWER(u.lastName) LIKE LOWER(CONCAT('%', :name, '%')))")
+    List<Doctor> findByDoctorNameContainingIncludingInactive(@Param("name") String name);
+
+    /**
+     * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ) - เฉพาะ active
      */
     @Query("SELECT d FROM Doctor d JOIN d.user u JOIN d.specialty s WHERE " +
             "d.isActive = true AND " +
@@ -64,7 +78,21 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
                                         Pageable pageable);
 
     /**
-     * หาหมอตาม specialty พร้อม pagination
+     * ค้นหาหมอขั้นสูง (รวม inactive) - สำหรับ admin
+     */
+    @Query("SELECT d FROM Doctor d JOIN d.user u JOIN d.specialty s WHERE " +
+            "(:name IS NULL OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
+            "(:specialtyId IS NULL OR s.id = :specialtyId) AND " +
+            "(:minFee IS NULL OR d.consultationFee >= :minFee) AND " +
+            "(:maxFee IS NULL OR d.consultationFee <= :maxFee)")
+    Page<Doctor> findDoctorsWithFiltersIncludingInactive(@Param("name") String name,
+                                                         @Param("specialtyId") Long specialtyId,
+                                                         @Param("minFee") BigDecimal minFee,
+                                                         @Param("maxFee") BigDecimal maxFee,
+                                                         Pageable pageable);
+
+    /**
+     * หาหมอตาม specialty พร้อม pagination (เฉพาะ active)
      */
     Page<Doctor> findBySpecialtyIdAndIsActiveTrue(Long specialtyId, Pageable pageable);
 
@@ -87,6 +115,4 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
      * หาหมอที่มีค่าตรวจในช่วงที่กำหนด
      */
     List<Doctor> findByConsultationFeeBetweenAndIsActiveTrue(BigDecimal minFee, BigDecimal maxFee);
-
-    Long id(Long id);
 }

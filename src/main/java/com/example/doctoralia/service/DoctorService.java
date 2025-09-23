@@ -37,14 +37,20 @@ public class DoctorService {
     @Autowired
     private UserRepository userRepository;
 
-    //ค้นหาหมอทั้งหมด
+    //ค้นหาหมอทั้งหมด (เฉพาะ active) - สำหรับ public use
     public Page<Doctor> getAllDoctors(int page, int size, String sortBy) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         return doctorRepository.findByIsActiveTrue(pageable);
     }
 
+    //ค้นหาหมอทั้งหมด (รวม inactive) - สำหรับ admin
+    public Page<Doctor> getAllDoctorsIncludingInactive(int page, int size, String sortBy) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+        return doctorRepository.findAll(pageable);
+    }
+
     /**
-     * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ)
+     * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ) - เฉพาะ active
      */
     public Page<Doctor> searchDoctors(String name, Long specialtyId, BigDecimal minFee, BigDecimal maxFee,
                                       int page, int size) {
@@ -52,7 +58,16 @@ public class DoctorService {
         return doctorRepository.findDoctorsWithFilters(name, specialtyId, minFee, maxFee, pageable);
     }
 
-    //ค้นหาหมอตาม ID
+    /**
+     * ค้นหาหมอขั้นสูง (รวม inactive) - สำหรับ admin
+     */
+    public Page<Doctor> searchDoctorsIncludingInactive(String name, Long specialtyId, BigDecimal minFee, BigDecimal maxFee,
+                                                       int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("user.firstName").ascending());
+        return doctorRepository.findDoctorsWithFiltersIncludingInactive(name, specialtyId, minFee, maxFee, pageable);
+    }
+
+    //ค้นหาหมอตาม ID (รวม inactive) - สำหรับ admin
     public Optional<Doctor> findById(Long id) {
         return doctorRepository.findById(id);
     }
@@ -62,22 +77,32 @@ public class DoctorService {
         return doctorRepository.findByUserId(userId);
     }
 
-    //หาหมอจาก specialty
+    //หาหมอจาก specialty (เฉพาะ active) - สำหรับ public
     public Page<Doctor> findBySpecialty(Long specialtyId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("user.firstName").ascending());
         return doctorRepository.findBySpecialtyIdAndIsActiveTrue(specialtyId, pageable);
     }
 
-    //ค้นหาตามชื่อหมอ
+    //หาหมอจาก specialty (รวม inactive) - สำหรับ admin
+    public Page<Doctor> findBySpecialtyIncludingInactive(Long specialtyId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("user.firstName").ascending());
+        return doctorRepository.findBySpecialtyId(specialtyId, pageable);
+    }
+
+    //ค้นหาตามชื่อหมอ (เฉพาะ active) - สำหรับ public
     public List<Doctor> findByName(String name) {
         return doctorRepository.findByDoctorNameContaining(name);
+    }
+
+    //ค้นหาตามชื่อหมอ (รวม inactive) - สำหรับ admin
+    public List<Doctor> findByNameIncludingInactive(String name) {
+        return doctorRepository.findByDoctorNameContainingIncludingInactive(name);
     }
 
     /**
      * สำหรับAdmin
      * สร้างหมอ
      */
-
     public Doctor createDoctor(
             Long userId, Long specialtyId, String licenseNumber,
             String bio, Integer experienceYears, BigDecimal consultationFee, String roomNumber) {
@@ -124,7 +149,6 @@ public class DoctorService {
         logger.info("Doctor created successfully: {} for user: {}", licenseNumber, user.getEmail());
 
         return savedDoctor;
-
     }
 
     //อัพเดท doctor profile (สำหรับหมอแก้ไขตัวเอง)
@@ -150,7 +174,7 @@ public class DoctorService {
     }
 
     //เปิด/ปิดการใช้งานหมอ (admin)
-    public Doctor toggleDoctorStatus(Long doctorId,boolean isActive) {
+    public Doctor toggleDoctorStatus(Long doctorId, boolean isActive) {
         Optional<Doctor> doctorOpt = doctorRepository.findById(doctorId);
         if (doctorOpt.isEmpty()) {
             throw new IllegalArgumentException("Doctor not found with ID: " + doctorId);
@@ -170,8 +194,6 @@ public class DoctorService {
         long totalDoctors = doctorRepository.countByIsActiveTrue();
         List<Specialty> specialties = specialtyRepository.findSpecialtiesWithActiveDoctors();
 
-        return new DoctorStats(totalDoctors,specialties.size());
+        return new DoctorStats(totalDoctors, specialties.size());
     }
-
-
 }
