@@ -1,14 +1,19 @@
 package com.example.doctoralia.service;
 
 import com.example.doctoralia.model.Availability;
+import com.example.doctoralia.model.Appointment;
 import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.repository.AvailabilityRepository;
+import com.example.doctoralia.repository.AppointmentRepository;
 import com.example.doctoralia.repository.DoctorRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -25,6 +30,9 @@ public class AvailabilityService {
 
     @Autowired
     private DoctorRepository doctorRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
     //เพิ่ม availability สำหรับหมอ
     public Availability addAvailability(Long doctorId, Integer dayOfWeek, LocalTime startTime, LocalTime endTime) {
@@ -182,6 +190,102 @@ public class AvailabilityService {
         // ตรวจสอบเวลาทำการปกติ (8:00 - 18:00)
         if (startTime.isBefore(LocalTime.of(6, 0)) || endTime.isAfter(LocalTime.of(22, 0))) {
             throw new IllegalArgumentException("Working hours must be between 06:00 - 22:00");
+        }
+    }
+
+    /**
+     * ดึงช่วงเวลาว่างของหมอในวันที่เจาะจง (30 นาทีต่อช่วง)
+     * สำหรับ Time Slot Picker
+     */
+    public List<String> getAvailableTimeSlots(Long doctorId, LocalDate date) {
+        List<String> availableSlots = new ArrayList<>();
+
+        // หาวันในสัปดาห์ (1=Monday, 2=Tuesday, ..., 7=Sunday)
+        int dayOfWeek = date.getDayOfWeek().getValue();
+
+        // ดึง availability ของหมอในวันนี้
+        List<Availability> availabilities = getDoctorAvailabilitiesByDay(doctorId, dayOfWeek);
+
+        if (availabilities.isEmpty()) {
+            logger.info("No availability found for doctor {} on {} (day {})", doctorId, date, dayOfWeek);
+            return availableSlots;
+        }
+
+        // ดึงนัดหมายที่มีอยู่แล้วในวันนี้
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.atTime(23, 59, 59);
+
+        List<Appointment> existingAppointments = appointmentRepository
+                .findByDoctorIdAndAppointmentDateTimeBetween(doctorId, startOfDay, endOfDay);
+
+        // สำหรับแต่ละช่วงเวลาทำงาน
+        for (Availability availability : availabilities) {
+            LocalTime start = availability.getStartTime();
+            LocalTime end = availability.getEndTime();
+
+            // แบ่งเป็นช่วงๆ 30 นาที
+            LocalTime current = start;
+            while (current.isBefore(end)) {
+                LocalTime slotEnd = current.plusMinutes(30);
+                if (slotEnd.isAfter(end)) break;
+
+                // ตรวจสอบว่าช่วงเวลานี้ว่างไหม
+                final LocalTime currentSlot = current;
+                boolean isOccupied = existingAppointments.stream().anyMatch(appointment -> {
+                    LocalTime appointmentTime = appointment.getAppointmentDateTime().toLocalTime();
+                    LocalTime appointmentEndTime = appointmentTime.plusMinutes(30); // สมมติ 30 นาทีต่อการนัด
+
+                    return (currentSlot.isBefore(appointmentEndTime) && currentSlot.plusMinutes(30).isAfter(appointmentTime));
+                });
+
+                if (!isOccupied) {
+                    availableSlots.add(current.toString());
+                }
+
+                current = current.plusMinutes(30);
+            }
+        }
+
+        logger.info("Found {} available time slots for doctor {} on {}",
+                   availableSlots.size(), doctorId, date);
+
+        return availableSlots;
+    }
+
+    /**
+     * ตรวจสอบว่าช่วงเวลาเจาะจงว่างหรือไม่
+     */
+    public boolean isTimeSlotAvailable(Long doctorId, LocalDate date, String timeString) {
+        try {
+            LocalTime requestedTime = LocalTime.parse(timeString);
+            int dayOfWeek = date.getDayOfWeek().getValue();
+
+            // ตรวจสอบว่าหมอทำงานในเวลานี้หรือไม่
+            boolean isDoctorWorking = isDoctorAvailable(doctorId, dayOfWeek, requestedTime);
+            if (!isDoctorWorking) {
+                logger.info("Doctor {} is not working at {} on {} (day {})",
+                           doctorId, timeString, date, dayOfWeek);
+                return false;
+            }
+
+            // ตรวจสอบว่ามีนัดหมายในเวลานี้หรือไม่
+            LocalDateTime requestedDateTime = date.atTime(requestedTime);
+            LocalDateTime endTime = requestedDateTime.plusMinutes(30);
+
+            List<Appointment> conflictingAppointments = appointmentRepository
+                    .findByDoctorIdAndAppointmentDateTimeBetween(doctorId, requestedDateTime, endTime);
+
+            boolean isAvailable = conflictingAppointments.isEmpty();
+
+            logger.info("Time slot check for doctor {} on {} at {}: {} (conflicts: {})",
+                       doctorId, date, timeString, isAvailable ? "AVAILABLE" : "OCCUPIED",
+                       conflictingAppointments.size());
+
+            return isAvailable;
+
+        } catch (Exception e) {
+            logger.error("Error parsing time string '{}': {}", timeString, e.getMessage());
+            throw new IllegalArgumentException("Invalid time format: " + timeString);
         }
     }
 }

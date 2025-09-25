@@ -123,4 +123,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment,Long> {
                                                      @Param("doctorId") Long doctorId,
                                                      @Param("now") LocalDateTime now);
 
+    /**
+     * หานัดหมายของหมอในช่วงเวลาที่กำหนด (สำหรับ availability check)
+     */
+    List<Appointment> findByDoctorIdAndAppointmentDateTimeBetween(Long doctorId,
+                                                                 LocalDateTime start,
+                                                                 LocalDateTime end);
+
 }

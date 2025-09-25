@@ -10,6 +10,9 @@ import com.example.doctoralia.model.UserRole;
 import com.example.doctoralia.repository.AppointmentRepository;
 import com.example.doctoralia.service.AvailabilityService;
 import com.example.doctoralia.service.DoctorService;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -199,6 +202,70 @@ public class AvailabilityController {
         } catch (Exception e) {
             logger.error("Error deleting availability!", e);
             return  ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * ดูช่วงเวลาว่างของหมอในวันที่เจาะจง (สำหรับ Time Slot Picker)
+     * GET /api/availability/doctor/{doctorId}/slots?date=2024-01-15
+     */
+    @GetMapping("/doctor/{doctorId}/slots")
+    public ResponseEntity<?> getAvailableTimeSlots(
+            @PathVariable Long doctorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        try {
+            List<String> availableSlots = availabilityService.getAvailableTimeSlots(doctorId, date);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctorId", doctorId);
+            response.put("date", date);
+            response.put("availableSlots", availableSlots);
+            response.put("totalSlots", availableSlots.size());
+
+            logger.info("Retrieved {} available time slots for doctor {} on {}",
+                       availableSlots.size(), doctorId, date);
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for doctor {} on date {}: {}", doctorId, date, e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error retrieving available time slots for doctor {} on {}: {}",
+                        doctorId, date, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error: Unable to retrieve time slots"));
+        }
+    }
+
+    /**
+     * ตรวจสอบว่าช่วงเวลาว่างหรือไม่
+     * GET /api/availability/doctor/{doctorId}/check?date=2024-01-15&time=09:30
+     */
+    @GetMapping("/doctor/{doctorId}/check")
+    public ResponseEntity<?> isTimeSlotAvailable(
+            @PathVariable Long doctorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam String time) {
+
+        try {
+            boolean isAvailable = availabilityService.isTimeSlotAvailable(doctorId, date, time);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctorId", doctorId);
+            response.put("date", date);
+            response.put("time", time);
+            response.put("isAvailable", isAvailable);
+
+            logger.info("Time slot check for doctor {} on {} at {}: {}",
+                       doctorId, date, time, isAvailable ? "AVAILABLE" : "OCCUPIED");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error checking time slot availability: {}", e.getMessage());
+            return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: " + e.getMessage()));
         }
     }

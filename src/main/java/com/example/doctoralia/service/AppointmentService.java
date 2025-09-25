@@ -69,14 +69,14 @@ public class AppointmentService {
             throw new IllegalArgumentException("Time slot is not available");
         }
 
-        // ตรวจสอบว่าคนไข้มีนัดกับหมอคนนี้แล้วหรือไม่
-        List<Appointment> existing = appointmentRepository.findExistingFutureAppointments(
-                patientId, doctorId, LocalDateTime.now()
-        );
-
-        if (!existing.isEmpty()) {
-            throw new IllegalArgumentException("You already have a pending/confirmed appointment with this doctor");
-        }
+        // อนุญาตให้จองได้หลายนัด - comment out การตรวจสอบ duplicate
+        // List<Appointment> existing = appointmentRepository.findExistingFutureAppointments(
+        //         patientId, doctorId, LocalDateTime.now()
+        // );
+        //
+        // if (!existing.isEmpty()) {
+        //     throw new IllegalArgumentException("You already have a pending/confirmed appointment with this doctor");
+        // }
 
         // สร้างนัดหมาย
         Appointment appointment = new Appointment(doctor, patient, appointmentDateTime);
