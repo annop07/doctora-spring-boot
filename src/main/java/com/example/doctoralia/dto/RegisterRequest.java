@@ -14,11 +14,9 @@ public class RegisterRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
-    @NotBlank(message = "First name is required")
-    private String firstName;
+    private String firstName; // Optional - will use default if not provided
 
-    @NotBlank(message = "Last name is required")
-    private String lastName;
+    private String lastName; // Optional - will use default if not provided
 
     private UserRole role = UserRole.PATIENT;
 

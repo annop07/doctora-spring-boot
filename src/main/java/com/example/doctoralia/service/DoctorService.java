@@ -48,7 +48,7 @@ public class DoctorService {
      */
     public Page<Doctor> searchDoctors(String name, Long specialtyId, BigDecimal minFee, BigDecimal maxFee,
                                       int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("user.firstName").ascending());
+        Pageable pageable = PageRequest.of(page, size);
         return doctorRepository.findDoctorsWithFilters(name, specialtyId, minFee, maxFee, pageable);
     }
 
@@ -64,7 +64,7 @@ public class DoctorService {
 
     //หาหมอจาก specialty
     public Page<Doctor> findBySpecialty(Long specialtyId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("user.firstName").ascending());
+        Pageable pageable = PageRequest.of(page, size);
         return doctorRepository.findBySpecialtyIdAndIsActiveTrue(specialtyId, pageable);
     }
 

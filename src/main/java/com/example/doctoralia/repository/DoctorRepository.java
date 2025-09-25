@@ -51,12 +51,18 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     /**
      * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ)
      */
-    @Query("SELECT d FROM Doctor d JOIN d.user u JOIN d.specialty s WHERE " +
-            "d.isActive = true AND " +
-            "(:name IS NULL OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-            "(:specialtyId IS NULL OR s.id = :specialtyId) AND " +
-            "(:minFee IS NULL OR d.consultationFee >= :minFee) AND " +
-            "(:maxFee IS NULL OR d.consultationFee <= :maxFee)")
+    @Query(value = "SELECT d.* FROM doctors d " +
+            "JOIN users u ON u.id = d.user_id " +
+            "JOIN specialties s ON s.id = d.specialty_id " +
+            "WHERE d.is_active = true " +
+            "AND (:name IS NULL OR (LOWER(u.first_name || ' ' || u.last_name) LIKE LOWER('%' || CAST(:name AS TEXT) || '%') " +
+            "     OR LOWER(u.first_name) LIKE LOWER('%' || CAST(:name AS TEXT) || '%') " +
+            "     OR LOWER(u.last_name) LIKE LOWER('%' || CAST(:name AS TEXT) || '%'))) " +
+            "AND (:specialtyId IS NULL OR s.id = :specialtyId) " +
+            "AND (:minFee IS NULL OR d.consultation_fee >= :minFee) " +
+            "AND (:maxFee IS NULL OR d.consultation_fee <= :maxFee) " +
+            "ORDER BY u.first_name",
+            nativeQuery = true)
     Page<Doctor> findDoctorsWithFilters(@Param("name") String name,
                                         @Param("specialtyId") Long specialtyId,
                                         @Param("minFee") BigDecimal minFee,

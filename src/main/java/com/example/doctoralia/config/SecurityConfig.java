@@ -27,9 +27,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints (เฉพาะเจาะจงก่อน)
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/health").permitAll()  // Health check
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
                         .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats").permitAll()
                         .requestMatchers("/api/doctors/{id:[0-9]+}").permitAll()  // เฉพาะ ID ตัวเลข
+                        .requestMatchers("/api/doctors/me", "/api/doctors/me/**").permitAll()  // Public doctor endpoints
                         .requestMatchers("/api/availability/doctor/**").permitAll() // ดูตารางเวลาหมอ (public)
                         .requestMatchers("/api/public/**").permitAll()
 
@@ -38,8 +40,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/appointments/my").hasRole("PATIENT")        // GET: ดูนัดตัวเอง
                         .requestMatchers("/api/appointments/*/cancel").hasRole("PATIENT")  // PUT: ยกเลิกนัด
 
-                        // Protected endpoints - DOCTOR
-                        .requestMatchers("/api/doctors/me/**").hasRole("DOCTOR")              // จัดการโปรไฟล์หมอ
+                        // Protected endpoints - DOCTOR (เฉพาะ profile management)
+                        .requestMatchers("/api/doctors/profile/**").hasRole("DOCTOR")         // จัดการโปรไฟล์หมอ
                         .requestMatchers("/api/availability").hasRole("DOCTOR")               // จัดการตารางเวลา (POST)
                         .requestMatchers("/api/availability/my").hasRole("DOCTOR")            // ดูตารางเวลาตัวเอง
                         .requestMatchers("/api/availability/*").hasRole("DOCTOR")             // จัดการตารางเวลา (PUT/DELETE)

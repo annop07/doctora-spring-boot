@@ -33,8 +33,11 @@ public class UserService {
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
+
+        // ตั้งค่าเริ่มต้นหากไม่มี firstName/lastName
+        user.setFirstName(firstName != null && !firstName.trim().isEmpty() ? firstName.trim() : "ผู้ใช้");
+        user.setLastName(lastName != null && !lastName.trim().isEmpty() ? lastName.trim() : "ระบบ");
+
         user.setRole(role);
 
         User savedUser = userRepository.save(user);
