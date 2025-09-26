@@ -255,6 +255,7 @@ public class AppointmentController {
         doctor.put("name", appointment.getDoctorName());
         doctor.put("specialty", appointment.getDoctor().getSpecialtyName());
         doctor.put("roomNumber", appointment.getDoctor().getRoomNumber());
+        doctor.put("consultationFee", appointment.getDoctor().getConsultationFee());
         response.put("doctor", doctor);
 
         return response;
