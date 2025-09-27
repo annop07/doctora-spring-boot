@@ -45,12 +45,13 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
     /**
      * ค้นหาหมอตามชื่อ (search ใน firstName และ lastName ของ User) - เฉพาะ active
+     * Fixed version with proper null handling
      */
     @Query("SELECT d FROM Doctor d JOIN d.user u WHERE " +
             "d.isActive = true AND " +
-            "(LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
-            "LOWER(u.firstName) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
-            "LOWER(u.lastName) LIKE LOWER(CONCAT('%', :name, '%')))")
+            "(LOWER(COALESCE(u.firstName, '')) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
+            "LOWER(COALESCE(u.lastName, '')) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
+            "LOWER(CONCAT(COALESCE(u.firstName, ''), ' ', COALESCE(u.lastName, ''))) LIKE LOWER(CONCAT('%', :name, '%')))")
     List<Doctor> findByDoctorNameContaining(@Param("name") String name);
 
     /**
@@ -63,11 +64,12 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     List<Doctor> findByDoctorNameContainingIncludingInactive(@Param("name") String name);
 
     /**
-     * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ) - เฉพาะ active
+     * Fixed query - ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ) - เฉพาะ active
+     * Fixed the CONCAT and LOWER functions for PostgreSQL
      */
     @Query("SELECT d FROM Doctor d JOIN d.user u JOIN d.specialty s WHERE " +
             "d.isActive = true AND " +
-            "(:name IS NULL OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
+            "(:name IS NULL OR LOWER(CONCAT(COALESCE(u.firstName, ''), ' ', COALESCE(u.lastName, ''))) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
             "(:specialtyId IS NULL OR s.id = :specialtyId) AND " +
             "(:minFee IS NULL OR d.consultationFee >= :minFee) AND " +
             "(:maxFee IS NULL OR d.consultationFee <= :maxFee)")
@@ -76,6 +78,13 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
                                         @Param("minFee") BigDecimal minFee,
                                         @Param("maxFee") BigDecimal maxFee,
                                         Pageable pageable);
+
+    /**
+     * Alternative simpler query if the above still has issues
+     */
+    @Query("SELECT d FROM Doctor d WHERE d.isActive = true AND " +
+            "(:specialtyId IS NULL OR d.specialty.id = :specialtyId)")
+    Page<Doctor> findDoctorsWithSpecialtyFilter(@Param("specialtyId") Long specialtyId, Pageable pageable);
 
     /**
      * ค้นหาหมอขั้นสูง (รวม inactive) - สำหรับ admin

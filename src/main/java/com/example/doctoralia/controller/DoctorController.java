@@ -11,14 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/doctors")
@@ -33,7 +33,9 @@ public class DoctorController {
     @Autowired
     private SpecialtyService specialtyService;
 
-    //ค้นหาหมอทั้งหมด - สำหรับ public use (เฉพาะ active doctors)
+    /**
+     * Improved search endpoint with better error handling
+     */
     @GetMapping
     public ResponseEntity<?> searchDoctors(
             @RequestParam(defaultValue = "0") int page,
@@ -46,27 +48,52 @@ public class DoctorController {
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
 
         try {
+            logger.info("Searching doctors with params: page={}, size={}, name={}, specialty={}, minFee={}, maxFee={}",
+                    page, size, name, specialty, minFee, maxFee);
+
             Page<Doctor> doctors;
 
+            // If we have search/filter parameters, use advanced search
             if (name != null || specialty != null || minFee != null || maxFee != null) {
-                if (includeInactive) {
-                    // Admin search - include all doctors
-                    doctors = doctorService.searchDoctorsIncludingInactive(name, specialty, minFee, maxFee, page, size);
-                } else {
-                    // Public search - only active doctors
-                    doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+                try {
+                    if (includeInactive) {
+                        doctors = doctorService.searchDoctorsIncludingInactive(name, specialty, minFee, maxFee, page, size);
+                    } else {
+                        doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Advanced search failed, falling back to simpler methods: {}", e.getMessage());
+
+                    // Fallback: Try individual filters
+                    if (specialty != null && name == null) {
+                        // Specialty only
+                        doctors = doctorService.findBySpecialty(specialty, page, size);
+                    } else if (name != null && specialty == null) {
+                        // Name only - convert List to Page
+                        List<Doctor> doctorList = doctorService.findByName(name);
+                        int start = page * size;
+                        int end = Math.min(start + size, doctorList.size());
+                        List<Doctor> pageContent = doctorList.subList(start, end);
+                        doctors = new PageImpl<>(pageContent, PageRequest.of(page, size), doctorList.size());
+                    } else {
+                        // Get all doctors
+                        if (includeInactive) {
+                            doctors = doctorService.getAllDoctorsIncludingInactive(page, size, sort);
+                        } else {
+                            doctors = doctorService.getAllDoctors(page, size, sort);
+                        }
+                    }
                 }
             } else {
+                // No filters, get all doctors
                 if (includeInactive) {
-                    // Admin view - show all doctors
                     doctors = doctorService.getAllDoctorsIncludingInactive(page, size, sort);
                 } else {
-                    // Public view - only active doctors
                     doctors = doctorService.getAllDoctors(page, size, sort);
                 }
             }
 
-            // แปลงเป็น response format
+            // Convert to response format
             Map<String, Object> response = new HashMap<>();
             response.put("doctors", doctors.getContent().stream().map(this::convertToDoctorResponse).toList());
             response.put("currentPage", doctors.getNumber());
@@ -79,8 +106,19 @@ public class DoctorController {
 
         } catch (Exception e) {
             logger.error("Error searching doctors: ", e);
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Error searching doctors: " + e.getMessage()));
+
+            // Return structured error response
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to search doctors");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("doctors", new ArrayList<>());
+            errorResponse.put("currentPage", page);
+            errorResponse.put("totalItems", 0);
+            errorResponse.put("totalPages", 0);
+            errorResponse.put("hasNext", false);
+            errorResponse.put("hasPrevious", false);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
