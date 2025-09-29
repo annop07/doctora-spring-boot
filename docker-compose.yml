@@ -3,13 +3,13 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: doctorbook-db
+    container_name: doctorbook-db-new
     environment:
       POSTGRES_DB: doctorbook
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

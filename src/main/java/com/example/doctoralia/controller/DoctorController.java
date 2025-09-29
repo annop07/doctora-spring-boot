@@ -34,6 +34,54 @@ public class DoctorController {
     private SpecialtyService specialtyService;
 
     /**
+     * Get all active doctors (for general listing)
+     */
+    @GetMapping("/active")
+    public ResponseEntity<?> getAllActiveDoctors() {
+        try {
+            List<Doctor> doctors = doctorService.findByIsActiveTrue();
+
+            List<Map<String, Object>> doctorList = doctors.stream()
+                .map(this::convertToSimpleDoctorResponse)
+                .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctors", doctorList);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error fetching active doctors: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch doctors"));
+        }
+    }
+
+    /**
+     * Get doctors by specialty name (for specialty-based selection)
+     */
+    @GetMapping("/by-specialty")
+    public ResponseEntity<?> getDoctorsBySpecialty(@RequestParam String specialty) {
+        try {
+            List<Doctor> doctors = doctorService.findBySpecialtyName(specialty);
+
+            List<Map<String, Object>> doctorList = doctors.stream()
+                .map(this::convertToSimpleDoctorResponse)
+                .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctors", doctorList);
+            response.put("specialty", specialty);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error fetching doctors by specialty: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch doctors for specialty: " + specialty));
+        }
+    }
+
+
+    /**
      * Improved search endpoint with better error handling
      */
     @GetMapping
@@ -258,6 +306,32 @@ public class DoctorController {
         response.put("bio", doctor.getBio() != null ?
                 (doctor.getBio().length() > 100 ?
                         doctor.getBio().substring(0, 100) + "..." :
+                        doctor.getBio()) : null);
+
+        return response;
+    }
+
+    // Helper method for simple doctor response (for lists)
+    private Map<String, Object> convertToSimpleDoctorResponse(Doctor doctor) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", doctor.getId());
+        response.put("doctorName", doctor.getDoctorName());
+        response.put("email", doctor.getUser().getEmail());
+
+        // Specialty info
+        Map<String, Object> specialty = new HashMap<>();
+        specialty.put("id", doctor.getSpecialty().getId());
+        specialty.put("name", doctor.getSpecialty().getName());
+        response.put("specialty", specialty);
+
+        response.put("consultationFee", doctor.getConsultationFee());
+        response.put("experienceYears", doctor.getExperienceYears());
+        response.put("roomNumber", doctor.getRoomNumber());
+
+        // Short bio for lists
+        response.put("bio", doctor.getBio() != null ?
+                (doctor.getBio().length() > 50 ?
+                        doctor.getBio().substring(0, 50) + "..." :
                         doctor.getBio()) : null);
 
         return response;

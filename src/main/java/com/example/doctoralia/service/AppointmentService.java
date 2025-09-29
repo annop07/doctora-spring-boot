@@ -7,6 +7,9 @@ import com.example.doctoralia.model.User;
 import com.example.doctoralia.repository.AppointmentRepository;
 import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.UserRepository;
+import com.example.doctoralia.dto.CreateAppointmentWithPatientInfoRequest;
+import com.example.doctoralia.model.PatientBookingInfo;
+import com.example.doctoralia.repository.PatientBookingInfoRepository;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +18,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -31,6 +36,9 @@ public class AppointmentService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PatientBookingInfoRepository patientBookingInfoRepository;
 
     public Appointment createAppointment(Long doctorId, Long patientId,
                                          LocalDateTime appointmentDateTime,
@@ -130,5 +138,119 @@ public class AppointmentService {
         appointment.setStatus(status);
 
         return appointmentRepository.save(appointment);
+    }
+
+    /**
+     * Create appointment with complete patient information
+     */
+    public Map<String, Object> createAppointmentWithPatientInfo(
+            CreateAppointmentWithPatientInfoRequest request, Long patientId) {
+
+        // First create the appointment using existing method
+        Appointment appointment = createAppointment(
+            request.getDoctorId(),
+            patientId,
+            request.getAppointmentDateTime(),
+            request.getDurationMinutes(),
+            request.getNotes()
+        );
+
+        // Generate queue number if not provided
+        String queueNumber = request.getQueueNumber();
+        if (queueNumber == null || queueNumber.trim().isEmpty()) {
+            queueNumber = generateQueueNumber();
+        }
+
+        // Create and save patient booking info
+        PatientBookingInfo patientBookingInfo = new PatientBookingInfo(
+            appointment,
+            request.getPatientPrefix(),
+            request.getPatientFirstName(),
+            request.getPatientLastName(),
+            request.getPatientGender(),
+            request.getPatientDateOfBirth(),
+            request.getPatientNationality(),
+            request.getPatientCitizenId(),
+            request.getPatientPhone(),
+            request.getPatientEmail(),
+            request.getSymptoms(),
+            request.getBookingType(),
+            queueNumber
+        );
+
+        PatientBookingInfo savedPatientInfo = patientBookingInfoRepository.save(patientBookingInfo);
+
+        // Prepare response
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Appointment created successfully!");
+
+        Map<String, Object> appointmentData = convertToAppointmentResponse(appointment);
+        response.put("appointment", appointmentData);
+
+        Map<String, Object> patientInfo = new HashMap<>();
+        patientInfo.put("id", savedPatientInfo.getId());
+        patientInfo.put("queueNumber", savedPatientInfo.getQueueNumber());
+        patientInfo.put("patientFullName", savedPatientInfo.getPatientFullName());
+        patientInfo.put("bookingType", savedPatientInfo.getBookingType());
+        patientInfo.put("symptoms", savedPatientInfo.getSymptoms());
+
+        response.put("patientInfo", patientInfo);
+
+        logger.info("Appointment created with patient info: appointmentId={}, patientInfoId={}, queueNumber={}",
+                   appointment.getId(), savedPatientInfo.getId(), queueNumber);
+
+        return response;
+    }
+
+    /**
+     * Generate unique queue number
+     */
+    private String generateQueueNumber() {
+        // Get the latest queue number from database
+        String latestQueue = patientBookingInfoRepository.findLatestQueueNumber().orElse("000");
+
+        try {
+            int nextNumber = Integer.parseInt(latestQueue) + 1;
+            return String.format("%03d", nextNumber); // Format as 3-digit string (001, 002, etc.)
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid queue number format: {}, starting from 001", latestQueue);
+            return "001";
+        }
+    }
+
+    /**
+     * Convert appointment to response format (reusing existing method logic)
+     */
+    private Map<String, Object> convertToAppointmentResponse(Appointment appointment) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", appointment.getId());
+
+        // Doctor info
+        Map<String, Object> doctor = new HashMap<>();
+        doctor.put("id", appointment.getDoctor().getId());
+        doctor.put("doctorName", appointment.getDoctor().getDoctorName());
+        Map<String, Object> specialty = new HashMap<>();
+        specialty.put("id", appointment.getDoctor().getSpecialty().getId());
+        specialty.put("name", appointment.getDoctor().getSpecialty().getName());
+        doctor.put("specialty", specialty);
+        response.put("doctor", doctor);
+
+        // Patient info
+        Map<String, Object> patient = new HashMap<>();
+        patient.put("id", appointment.getPatient().getId());
+        patient.put("email", appointment.getPatient().getEmail());
+        patient.put("firstName", appointment.getPatient().getFirstName());
+        patient.put("lastName", appointment.getPatient().getLastName());
+        response.put("patient", patient);
+
+        response.put("appointmentDatetime", appointment.getAppointmentDatetime());
+        response.put("durationMinutes", appointment.getDurationMinutes());
+        response.put("status", appointment.getStatus());
+        response.put("notes", appointment.getNotes());
+        response.put("doctorNotes", appointment.getDoctorNotes());
+        response.put("createdAt", appointment.getCreatedAt());
+        response.put("updatedAt", appointment.getUpdatedAt());
+
+        return response;
     }
 }

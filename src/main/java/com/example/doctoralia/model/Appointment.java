@@ -27,9 +27,8 @@ public class Appointment {
     @Column(name = "duration_minutes")
     private Integer durationMinutes = 30;
 
-    // ⭐ CHANGE THIS PART - Use columnDefinition to match PostgreSQL enum
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "appointment_status")
+    @Column(nullable = false, length = 20)
     private AppointmentStatus status = AppointmentStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")

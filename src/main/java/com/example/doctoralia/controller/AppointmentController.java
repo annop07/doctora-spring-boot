@@ -2,6 +2,7 @@ package com.example.doctoralia.controller;
 
 import com.example.doctoralia.config.JwtUtils;
 import com.example.doctoralia.dto.CreateAppointmentRequest;
+import com.example.doctoralia.dto.CreateAppointmentWithPatientInfoRequest;
 import com.example.doctoralia.dto.MessageResponse;
 import com.example.doctoralia.model.Appointment;
 import com.example.doctoralia.service.AppointmentService;
@@ -63,6 +64,37 @@ public class AppointmentController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error creating appointment: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Create appointment with complete patient information (New endpoint)
+     */
+    @PostMapping("/with-patient-info")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<?> createAppointmentWithPatientInfo(
+            @Valid @RequestBody CreateAppointmentWithPatientInfoRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String jwt = parseJwt(httpRequest);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Invalid token"));
+            }
+
+            Long patientId = jwtUtils.getUserIdFromJwtToken(jwt);
+            logger.info("Creating appointment with patient info for patient: {} with doctor: {}",
+                       patientId, request.getDoctorId());
+
+            // Call new service method that handles patient info
+            Map<String, Object> result = appointmentService.createAppointmentWithPatientInfo(
+                    request, patientId);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error creating appointment with patient info: ", e);
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: " + e.getMessage()));
         }

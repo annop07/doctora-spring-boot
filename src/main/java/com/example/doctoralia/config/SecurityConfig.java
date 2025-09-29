@@ -26,7 +26,7 @@ public class SecurityConfig {
                         // Public endpoints (authentication not required)
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
-                        .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats").permitAll()
+                        .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/doctors/{id:[0-9]+}").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
 

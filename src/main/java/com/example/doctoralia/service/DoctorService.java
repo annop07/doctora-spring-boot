@@ -99,6 +99,16 @@ public class DoctorService {
         return doctorRepository.findByDoctorNameContainingIncludingInactive(name);
     }
 
+    //หาหมอทั้งหมดที่ active (สำหรับการแสดง list)
+    public List<Doctor> findByIsActiveTrue() {
+        return doctorRepository.findByIsActiveTrueOrderByDoctorNameAsc();
+    }
+
+    //หาหมอจากชื่อ specialty
+    public List<Doctor> findBySpecialtyName(String specialtyName) {
+        return doctorRepository.findBySpecialtyNameAndIsActiveTrue(specialtyName);
+    }
+
     /**
      * สำหรับAdmin
      * สร้างหมอ

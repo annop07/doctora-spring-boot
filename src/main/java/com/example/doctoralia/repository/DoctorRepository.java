@@ -67,12 +67,16 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
      * Fixed query - ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ) - เฉพาะ active
      * Fixed the CONCAT and LOWER functions for PostgreSQL
      */
-    @Query("SELECT d FROM Doctor d JOIN d.user u JOIN d.specialty s WHERE " +
-            "d.isActive = true AND " +
-            "(:name IS NULL OR LOWER(CONCAT(COALESCE(u.firstName, ''), ' ', COALESCE(u.lastName, ''))) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
+    @Query(value = "SELECT d.* FROM doctors d " +
+            "JOIN users u ON d.user_id = u.id " +
+            "JOIN specialties s ON d.specialty_id = s.id WHERE " +
+            "d.is_active = true AND " +
+            "(:name IS NULL OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE LOWER('%' || :name || '%')) AND " +
             "(:specialtyId IS NULL OR s.id = :specialtyId) AND " +
-            "(:minFee IS NULL OR d.consultationFee >= :minFee) AND " +
-            "(:maxFee IS NULL OR d.consultationFee <= :maxFee)")
+            "(:minFee IS NULL OR d.consultation_fee >= :minFee) AND " +
+            "(:maxFee IS NULL OR d.consultation_fee <= :maxFee) " +
+            "ORDER BY u.first_name",
+            nativeQuery = true)
     Page<Doctor> findDoctorsWithFilters(@Param("name") String name,
                                         @Param("specialtyId") Long specialtyId,
                                         @Param("minFee") BigDecimal minFee,
@@ -124,4 +128,17 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
      * หาหมอที่มีค่าตรวจในช่วงที่กำหนด
      */
     List<Doctor> findByConsultationFeeBetweenAndIsActiveTrue(BigDecimal minFee, BigDecimal maxFee);
+
+    /**
+     * หาหมอทั้งหมดที่ active เรียงตามชื่อ
+     */
+    @Query("SELECT d FROM Doctor d JOIN d.user u WHERE d.isActive = true ORDER BY u.firstName ASC")
+    List<Doctor> findByIsActiveTrueOrderByDoctorNameAsc();
+
+    /**
+     * หาหมอตามชื่อ specialty และ active = true
+     */
+    @Query("SELECT d FROM Doctor d JOIN d.specialty s WHERE " +
+            "d.isActive = true AND LOWER(s.name) = LOWER(:specialtyName)")
+    List<Doctor> findBySpecialtyNameAndIsActiveTrue(@Param("specialtyName") String specialtyName);
 }
