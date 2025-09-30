@@ -32,6 +32,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
                         .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/doctors/{id:[0-9]+}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/availability/doctor/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/doctor/*/booked-slots").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
 
                         // Protected endpoints (authentication required)

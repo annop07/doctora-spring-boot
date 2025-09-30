@@ -330,6 +330,44 @@ public class AppointmentController {
         }
     }
 
+    /**
+     * Get booked time slots for a specific doctor on a specific date (Public API)
+     * Returns time slots with their booking status
+     */
+    @GetMapping("/doctor/{doctorId}/booked-slots")
+    public ResponseEntity<?> getBookedTimeSlots(
+            @PathVariable Long doctorId,
+            @RequestParam String date) { // Format: YYYY-MM-DD
+        try {
+            logger.info("Getting booked slots for doctor: {} on date: {}", doctorId, date);
+
+            List<Appointment> appointments = appointmentService.getAppointmentsByDoctorAndDate(doctorId, date);
+
+            // Group appointments by time slot and status
+            List<Map<String, Object>> bookedSlots = appointments.stream()
+                    .map(apt -> {
+                        Map<String, Object> slot = new HashMap<>();
+                        slot.put("appointmentId", apt.getId());
+                        slot.put("startTime", apt.getAppointmentDatetime());
+                        slot.put("durationMinutes", apt.getDurationMinutes());
+                        slot.put("status", apt.getStatus()); // PENDING, CONFIRMED, CANCELLED, COMPLETED
+                        return slot;
+                    })
+                    .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("doctorId", doctorId);
+            response.put("date", date);
+            response.put("bookedSlots", bookedSlots);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting booked slots: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
         if (headerAuth != null && headerAuth.startsWith("Bearer ")) {

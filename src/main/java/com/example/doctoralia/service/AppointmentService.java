@@ -16,8 +16,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -251,6 +253,37 @@ public class AppointmentService {
      */
     public Optional<PatientBookingInfo> getPatientBookingInfo(Long appointmentId) {
         return patientBookingInfoRepository.findByAppointmentId(appointmentId);
+    }
+
+    /**
+     * Get appointments by doctor and specific date
+     */
+    public List<Appointment> getAppointmentsByDoctorAndDate(Long doctorId, String dateString) {
+        try {
+            // Parse date string (YYYY-MM-DD)
+            LocalDate date = LocalDate.parse(dateString, DateTimeFormatter.ISO_LOCAL_DATE);
+
+            // Get start and end of day
+            LocalDateTime startOfDay = date.atStartOfDay();
+            LocalDateTime endOfDay = date.atTime(23, 59, 59);
+
+            // Query appointments for this doctor on this date
+            List<Appointment> appointments = appointmentRepository.findByDoctorIdOrderByAppointmentDatetimeAsc(doctorId);
+
+            // Filter by date range
+            return appointments.stream()
+                    .filter(apt -> {
+                        LocalDateTime aptTime = apt.getAppointmentDatetime();
+                        return !aptTime.isBefore(startOfDay) && !aptTime.isAfter(endOfDay);
+                    })
+                    // Only include non-cancelled appointments
+                    .filter(apt -> apt.getStatus() != AppointmentStatus.CANCELLED)
+                    .toList();
+
+        } catch (Exception e) {
+            logger.error("Error getting appointments by doctor and date: ", e);
+            throw new IllegalArgumentException("Invalid date format. Please use YYYY-MM-DD");
+        }
     }
 
     /**
