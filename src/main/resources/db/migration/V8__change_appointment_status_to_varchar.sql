@@ -1,75 +1,49 @@
--- V9__create_availabilities_table_simple.sql
--- Simple availability table without complex constraints
+-- V8__change_appointment_status_to_varchar.sql
+-- Change appointment status from ENUM to VARCHAR for better flexibility
 
-CREATE TABLE IF NOT EXISTS availabilities (
-    id BIGSERIAL PRIMARY KEY,
-    doctor_id BIGINT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-    day_of_week INTEGER NOT NULL CHECK (day_of_week >= 1 AND day_of_week <= 7),
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+-- Step 1: Drop the view that depends on the status column
+DROP VIEW IF EXISTS appointment_details;
 
-    CONSTRAINT check_time_range CHECK (start_time < end_time)
-);
+-- Step 2: Add a temporary column
+ALTER TABLE appointments ADD COLUMN status_temp VARCHAR(20);
 
-CREATE INDEX idx_availabilities_doctor_id ON availabilities(doctor_id);
-CREATE INDEX idx_availabilities_day_active ON availabilities(day_of_week, is_active);
+-- Step 3: Copy data from ENUM to VARCHAR
+UPDATE appointments SET status_temp = status::text;
 
--- ============================================
--- DOCTOR 1: Kobe Bryant (ID: 1)
--- Schedule: Full-time, Monday to Friday
--- Morning: 09:00-12:00, Afternoon: 13:00-17:00
--- ============================================
+-- Step 4: Drop the old ENUM column
+ALTER TABLE appointments DROP COLUMN status;
 
--- Monday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(1, 1, '09:00:00', '12:00:00', true),  -- Morning session
-(1, 1, '13:00:00', '17:00:00', true);  -- Afternoon session
+-- Step 5: Rename the temp column
+ALTER TABLE appointments RENAME COLUMN status_temp TO status;
 
--- Tuesday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(1, 2, '09:00:00', '12:00:00', true),
-(1, 2, '13:00:00', '17:00:00', true);
+-- Step 6: Set default value
+ALTER TABLE appointments ALTER COLUMN status SET DEFAULT 'PENDING';
 
--- Wednesday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(1, 3, '09:00:00', '12:00:00', true),
-(1, 3, '13:00:00', '17:00:00', true);
+-- Step 7: Add check constraint (optional, for data validation)
+ALTER TABLE appointments ADD CONSTRAINT check_appointment_status
+    CHECK (status IN ('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'NO_SHOW'));
 
--- Thursday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(1, 4, '09:00:00', '12:00:00', true),
-(1, 4, '13:00:00', '17:00:00', true);
-
--- Friday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(1, 5, '09:00:00', '12:00:00', true),
-(1, 5, '13:00:00', '17:00:00', true);
-
--- ============================================
--- DOCTOR 2: Jaylen Brown (ID: 2)
--- Schedule: Part-time, Monday/Wednesday/Friday + Saturday morning
--- Weekday: 10:00-13:00, 14:00-18:00
--- Saturday: 09:00-13:00 only
--- ============================================
-
--- Monday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(2, 1, '10:00:00', '13:00:00', true),
-(2, 1, '14:00:00', '18:00:00', true);
-
--- Wednesday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(2, 3, '10:00:00', '13:00:00', true),
-(2, 3, '14:00:00', '18:00:00', true);
-
--- Friday
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(2, 5, '10:00:00', '13:00:00', true),
-(2, 5, '14:00:00', '18:00:00', true);
-
--- Saturday (morning only)
-INSERT INTO availabilities (doctor_id, day_of_week, start_time, end_time, is_active) VALUES
-(2, 6, '09:00:00', '13:00:00', true);
+-- Step 8: Recreate the appointment_details view
+CREATE VIEW appointment_details AS
+SELECT
+    a.id,
+    a.appointment_datetime,
+    a.duration_minutes,
+    a.status,
+    a.notes,
+    a.doctor_notes,
+    -- Doctor info
+    d.room_number,
+    doc_user.first_name || ' ' || doc_user.last_name AS doctor_name,
+    s.name AS specialty_name,
+    -- Patient info
+    pat_user.first_name || ' ' || pat_user.last_name AS patient_name,
+    pat_user.email AS patient_email,
+    pat_user.phone AS patient_phone,
+    a.created_at
+FROM appointments a
+    JOIN doctors d ON a.doctor_id = d.id
+    JOIN users doc_user ON d.user_id = doc_user.id
+    JOIN specialties s ON d.specialty_id = s.id
+    JOIN users pat_user ON a.patient_id = pat_user.id
+ORDER BY a.appointment_datetime;
