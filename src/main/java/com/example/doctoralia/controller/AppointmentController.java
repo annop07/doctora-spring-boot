@@ -226,6 +226,85 @@ public class AppointmentController {
     }
 
     /**
+     * Get patient booking info for an appointment (Doctor only)
+     */
+    @GetMapping("/{id}/patient-info")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<?> getPatientBookingInfo(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        logger.info("🔵 [getPatientBookingInfo] Getting patient info for appointment ID: {}", id);
+
+        try {
+            String jwt = parseJwt(request);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                logger.error("❌ [getPatientBookingInfo] Invalid or missing JWT token");
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Invalid token"));
+            }
+
+            Long doctorUserId = jwtUtils.getUserIdFromJwtToken(jwt);
+
+            // Find doctor by user ID
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(doctorUserId);
+            if (doctorOpt.isEmpty()) {
+                logger.error("❌ [getPatientBookingInfo] Doctor profile not found for user ID: {}", doctorUserId);
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Doctor profile not found"));
+            }
+
+            // Get the appointment to verify it belongs to this doctor
+            Appointment appointment = appointmentService.getAppointmentsByDoctor(doctorOpt.get().getId())
+                    .stream()
+                    .filter(apt -> apt.getId().equals(id))
+                    .findFirst()
+                    .orElse(null);
+
+            if (appointment == null) {
+                logger.error("❌ [getPatientBookingInfo] Appointment not found or doesn't belong to this doctor");
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Appointment not found or unauthorized"));
+            }
+
+            // Get patient booking info
+            Optional<com.example.doctoralia.model.PatientBookingInfo> patientInfoOpt =
+                    appointmentService.getPatientBookingInfo(id);
+
+            if (patientInfoOpt.isEmpty()) {
+                logger.warn("⚠️ [getPatientBookingInfo] No patient booking info found for appointment: {}", id);
+                return ResponseEntity.ok(new MessageResponse("No patient booking information available"));
+            }
+
+            com.example.doctoralia.model.PatientBookingInfo patientInfo = patientInfoOpt.get();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", patientInfo.getId());
+            response.put("queueNumber", patientInfo.getQueueNumber());
+            response.put("patientPrefix", patientInfo.getPatientPrefix());
+            response.put("patientFirstName", patientInfo.getPatientFirstName());
+            response.put("patientLastName", patientInfo.getPatientLastName());
+            response.put("patientFullName", patientInfo.getPatientFullName());
+            response.put("patientGender", patientInfo.getPatientGender());
+            response.put("patientDateOfBirth", patientInfo.getPatientDateOfBirth());
+            response.put("patientNationality", patientInfo.getPatientNationality());
+            response.put("patientCitizenId", patientInfo.getPatientCitizenId());
+            response.put("patientPhone", patientInfo.getPatientPhone());
+            response.put("patientEmail", patientInfo.getPatientEmail());
+            response.put("symptoms", patientInfo.getSymptoms());
+            response.put("bookingType", patientInfo.getBookingType());
+            response.put("createdAt", patientInfo.getCreatedAt());
+
+            logger.info("✅ [getPatientBookingInfo] Patient info retrieved successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("❌ [getPatientBookingInfo] Error: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Cancel an appointment
      */
     @PutMapping("/{id}/cancel")

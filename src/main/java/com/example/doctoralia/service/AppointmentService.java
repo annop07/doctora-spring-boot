@@ -247,6 +247,13 @@ public class AppointmentService {
     }
 
     /**
+     * Get patient booking info for an appointment
+     */
+    public Optional<PatientBookingInfo> getPatientBookingInfo(Long appointmentId) {
+        return patientBookingInfoRepository.findByAppointmentId(appointmentId);
+    }
+
+    /**
      * Convert appointment to response format (reusing existing method logic)
      */
     private Map<String, Object> convertToAppointmentResponse(Appointment appointment) {

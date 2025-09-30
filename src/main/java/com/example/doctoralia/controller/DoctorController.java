@@ -1,5 +1,6 @@
 package com.example.doctoralia.controller;
 
+import com.example.doctoralia.config.JwtUtils;
 import com.example.doctoralia.dto.DoctorStats;
 import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.model.Specialty;
@@ -7,6 +8,7 @@ import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.SpecialtyRepository;
 import com.example.doctoralia.service.DoctorService;
 import com.example.doctoralia.service.SpecialtyService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -32,6 +35,9 @@ public class DoctorController {
 
     @Autowired
     private SpecialtyService specialtyService;
+
+    @Autowired
+    private JwtUtils jwtUtils;
 
     /**
      * Get all active doctors (for general listing)
@@ -264,6 +270,96 @@ public class DoctorController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Error getting stats: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Get current doctor's profile (Doctor only)
+     */
+    @GetMapping("/profile/my")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
+        try {
+            String jwt = parseJwt(request);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid token"));
+            }
+
+            Long doctorUserId = jwtUtils.getUserIdFromJwtToken(jwt);
+            logger.info("Getting profile for doctor user ID: {}", doctorUserId);
+
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(doctorUserId);
+            if (doctorOpt.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Doctor profile not found"));
+            }
+
+            Doctor doctor = doctorOpt.get();
+            return ResponseEntity.ok(convertToDoctorDetailResponse(doctor));
+
+        } catch (Exception e) {
+            logger.error("Error getting doctor profile: ", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Update current doctor's profile (Doctor only)
+     */
+    @PutMapping("/profile/my")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<?> updateMyProfile(
+            @RequestBody Map<String, Object> updateRequest,
+            HttpServletRequest request) {
+        try {
+            String jwt = parseJwt(request);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid token"));
+            }
+
+            Long doctorUserId = jwtUtils.getUserIdFromJwtToken(jwt);
+            logger.info("Updating profile for doctor user ID: {}", doctorUserId);
+
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(doctorUserId);
+            if (doctorOpt.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Doctor profile not found"));
+            }
+
+            Long doctorId = doctorOpt.get().getId();
+
+            // Extract update fields
+            String bio = (String) updateRequest.get("bio");
+            Integer experienceYears = updateRequest.get("experienceYears") != null ?
+                    ((Number) updateRequest.get("experienceYears")).intValue() : null;
+            BigDecimal consultationFee = updateRequest.get("consultationFee") != null ?
+                    new BigDecimal(updateRequest.get("consultationFee").toString()) : null;
+            String roomNumber = (String) updateRequest.get("roomNumber");
+
+            Doctor updatedDoctor = doctorService.updateDoctorProfile(
+                    doctorId, bio, experienceYears, consultationFee, roomNumber);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Profile updated successfully");
+            response.put("doctor", convertToDoctorDetailResponse(updatedDoctor));
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error updating doctor profile: ", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Error: " + e.getMessage()));
+        }
+    }
+
+    private String parseJwt(HttpServletRequest request) {
+        String headerAuth = request.getHeader("Authorization");
+        if (headerAuth != null && headerAuth.startsWith("Bearer ")) {
+            return headerAuth.substring(7);
+        }
+        return null;
     }
 
     private Map<String, Object> convertToDoctorDetailResponse(Doctor doctor) {
