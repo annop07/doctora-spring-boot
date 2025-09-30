@@ -5,7 +5,9 @@ import com.example.doctoralia.dto.CreateAppointmentRequest;
 import com.example.doctoralia.dto.CreateAppointmentWithPatientInfoRequest;
 import com.example.doctoralia.dto.MessageResponse;
 import com.example.doctoralia.model.Appointment;
+import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.service.AppointmentService;
+import com.example.doctoralia.service.DoctorService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -30,6 +33,9 @@ public class AppointmentController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private DoctorService doctorService;
 
     /**
      * Create a new appointment (Patient only)
@@ -124,6 +130,44 @@ public class AppointmentController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error getting appointments: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all appointments for current doctor
+     */
+    @GetMapping("/doctor/my")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<?> getMyDoctorAppointments(HttpServletRequest request) {
+        try {
+            String jwt = parseJwt(request);
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Invalid token"));
+            }
+
+            Long doctorUserId = jwtUtils.getUserIdFromJwtToken(jwt);
+
+            // Find doctor by user ID first
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(doctorUserId);
+            if (doctorOpt.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Doctor profile not found"));
+            }
+
+            Long doctorId = doctorOpt.get().getId();
+            List<Appointment> appointments = appointmentService.getAppointmentsByDoctor(doctorId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("appointments", appointments.stream()
+                    .map(this::convertToAppointmentResponse)
+                    .toList());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting doctor appointments: ", e);
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: " + e.getMessage()));
         }

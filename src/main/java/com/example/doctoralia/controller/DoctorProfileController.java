@@ -37,6 +37,7 @@ public class DoctorProfileController {
     private JwtUtils jwtUtils;
 
     //หมอดูโปรไฟล์ตัวเอง
+    @GetMapping
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
         try{
@@ -56,7 +57,7 @@ public class DoctorProfileController {
             }
 
             //หา doctor profile
-            Optional<Doctor> doctorOpt = doctorService.findById(userId);
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(userId);
             if (doctorOpt.isPresent()) {
                 Doctor doctor = doctorOpt.get();
                 return ResponseEntity.ok(convertToDoctorProfileResponse(doctor));
