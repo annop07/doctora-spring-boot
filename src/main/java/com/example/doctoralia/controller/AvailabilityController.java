@@ -178,7 +178,7 @@ public class AvailabilityController {
     }
 
     //ลบตารางเวลา
-    @DeleteMapping("{id}")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<?> deleteAvailability (@PathVariable Long id,
                                                  HttpServletRequest httpRequest) {
@@ -193,7 +193,7 @@ public class AvailabilityController {
 
             Doctor doctor = doctorOpt.get();
 
-            availabilityService.deleteAvailability(id, doctor.getId());
+            availabilityService.deleteAvailability(doctor.getId(), id);
 
             return ResponseEntity.ok(new MessageResponse("Availability deleted successfully!"));
         } catch (Exception e) {

@@ -26,6 +26,9 @@ public class AvailabilityService {
     @Autowired
     private DoctorRepository doctorRepository;
 
+    @Autowired
+    private DoctorService doctorService;
+
     //เพิ่ม availability สำหรับหมอ
     public Availability addAvailability(Long doctorId, Integer dayOfWeek, LocalTime startTime, LocalTime endTime) {
 
@@ -108,17 +111,33 @@ public class AvailabilityService {
 
     //ลบ availability
     public void deleteAvailability(Long doctorId, Long availabilityId) {
+        logger.info("Attempting to delete availability ID: {} for doctor ID: {}", availabilityId, doctorId);
+
         //หาหมอ
-        Optional<Doctor> doctorOpt = doctorRepository.findById(doctorId);
+        Optional<Doctor> doctorOpt = doctorService.findById(doctorId);
         if (doctorOpt.isEmpty()) {
+            logger.error("Doctor not found with ID: {}", doctorId);
             throw new IllegalArgumentException("Doctor not found with ID: " +doctorId );
         }
 
         Doctor doctor = doctorOpt.get();
+        logger.info("Doctor found: {}", doctor.getDoctorName());
 
         //หา availability
         Optional<Availability> availabilityOpt = availabilityRepository.findByIdAndDoctor(availabilityId, doctor);
+        logger.info("Finding availability with ID: {} for doctor: {}", availabilityId, doctor.getId());
+
         if (availabilityOpt.isEmpty()) {
+            logger.error("Availability not found - ID: {}, Doctor ID: {}", availabilityId, doctor.getId());
+
+            // Debug: Check if availability exists at all
+            Optional<Availability> anyAvailability = availabilityRepository.findById(availabilityId);
+            if (anyAvailability.isPresent()) {
+                logger.error("Availability exists but belongs to doctor ID: {}", anyAvailability.get().getDoctor().getId());
+            } else {
+                logger.error("Availability with ID {} does not exist in database", availabilityId);
+            }
+
             throw new IllegalArgumentException("Availability not found or access denied");
         }
 

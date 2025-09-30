@@ -174,6 +174,58 @@ public class AppointmentController {
     }
 
     /**
+     * Confirm an appointment (Doctor only)
+     */
+    @PutMapping("/{id}/confirm")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<?> confirmAppointment(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        logger.info("🔵 [confirmAppointment] Starting - Appointment ID: {}", id);
+
+        try {
+            String jwt = parseJwt(request);
+            logger.info("🔵 [confirmAppointment] JWT parsed: {}", jwt != null ? "Present" : "NULL");
+
+            if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+                logger.error("❌ [confirmAppointment] Invalid or missing JWT token");
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Invalid token"));
+            }
+
+            Long doctorUserId = jwtUtils.getUserIdFromJwtToken(jwt);
+            String role = jwtUtils.getRoleFromJwtToken(jwt);
+            logger.info("🔵 [confirmAppointment] Doctor User ID: {}, Role: {}", doctorUserId, role);
+
+            // Find doctor by user ID
+            Optional<Doctor> doctorOpt = doctorService.findByUserId(doctorUserId);
+            logger.info("🔵 [confirmAppointment] Doctor found: {}", doctorOpt.isPresent());
+
+            if (doctorOpt.isEmpty()) {
+                logger.error("❌ [confirmAppointment] Doctor profile not found for user ID: {}", doctorUserId);
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Doctor profile not found"));
+            }
+
+            Long doctorId = doctorOpt.get().getId();
+            logger.info("🔵 [confirmAppointment] Doctor ID: {}", doctorId);
+
+            Appointment appointment = appointmentService.confirmAppointment(id, doctorId);
+            logger.info("✅ [confirmAppointment] Appointment confirmed successfully");
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Appointment confirmed successfully!");
+            response.put("appointment", convertToAppointmentResponse(appointment));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("❌ [confirmAppointment] Error: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Cancel an appointment
      */
     @PutMapping("/{id}/cancel")

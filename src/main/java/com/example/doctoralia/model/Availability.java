@@ -33,7 +33,7 @@ public class Availability {
     private LocalTime endTime;
 
     @Column(name = "is_active")
-    private Boolean isActive;
+    private Boolean isActive = true;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -51,6 +51,7 @@ public class Availability {
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.isActive = true;
     }
 
     // Getters and Setters

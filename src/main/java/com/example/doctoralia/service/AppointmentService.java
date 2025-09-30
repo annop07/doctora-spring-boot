@@ -141,6 +141,34 @@ public class AppointmentService {
     }
 
     /**
+     * Confirm an appointment (Doctor only)
+     */
+    public Appointment confirmAppointment(Long appointmentId, Long doctorId) {
+        Optional<Appointment> appointmentOpt = appointmentRepository.findById(appointmentId);
+        if (appointmentOpt.isEmpty()) {
+            throw new IllegalArgumentException("Appointment not found");
+        }
+
+        Appointment appointment = appointmentOpt.get();
+
+        // Verify that this appointment belongs to the doctor
+        if (!appointment.getDoctor().getId().equals(doctorId)) {
+            throw new IllegalArgumentException("You can only confirm your own appointments");
+        }
+
+        // Check if appointment is in PENDING status
+        if (appointment.getStatus() != AppointmentStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending appointments can be confirmed");
+        }
+
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        Appointment updated = appointmentRepository.save(appointment);
+
+        logger.info("Appointment {} confirmed by doctor {}", appointmentId, doctorId);
+        return updated;
+    }
+
+    /**
      * Create appointment with complete patient information
      */
     public Map<String, Object> createAppointmentWithPatientInfo(
