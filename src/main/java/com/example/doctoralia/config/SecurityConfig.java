@@ -17,6 +17,7 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    // In SecurityConfig.java, add to the public endpoints section:
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -28,13 +29,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
                         .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/doctors/{id:[0-9]+}").permitAll()
+
+                        // ⭐ ADD THIS LINE - Make availability endpoints public
+                        .requestMatchers("/api/availabilities/**").permitAll()
+
                         .requestMatchers("/api/public/**").permitAll()
 
                         // Protected endpoints (authentication required)
                         .requestMatchers("/api/doctors/me/**").authenticated()
                         .requestMatchers("/api/users/**").authenticated()
-
-                        // ⭐ Appointment endpoints - require authentication
                         .requestMatchers("/api/appointments/**").authenticated()
 
                         // Admin only endpoints
@@ -43,10 +46,7 @@ public class SecurityConfig {
                         // Default - require authentication for everything else
                         .anyRequest().authenticated()
                 )
-                // Add JWT filter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
-        System.out.println("✅ SecurityConfig loaded successfully!");
 
         return http.build();
     }
