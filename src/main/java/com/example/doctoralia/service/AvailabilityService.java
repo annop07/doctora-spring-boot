@@ -183,6 +183,72 @@ public class AvailabilityService {
     }
 
     /**
+     * เช็คว่าแพทย์มี availability ในวันที่กำหนดหรือไม่
+     * @param doctorId ID ของแพทย์
+     * @param date วันที่ในรูปแบบ String "YYYY-MM-DD"
+     * @return true ถ้ามี availability, false ถ้าไม่มี
+     */
+    public boolean hasDoctorAvailabilityOnDate(Long doctorId, String date) {
+        try {
+            if (date == null || date.isEmpty()) {
+                return false;
+            }
+
+            // แปลงวันที่เป็น dayOfWeek (1=Monday, 7=Sunday)
+            java.time.LocalDate localDate = java.time.LocalDate.parse(date);
+            int dayOfWeek = localDate.getDayOfWeek().getValue(); // 1=Monday, 7=Sunday
+
+            logger.info("Checking availability for doctor {} on {} (dayOfWeek: {})",
+                doctorId, date, dayOfWeek);
+
+            // ค้นหา availability ของแพทย์ในวันนั้น
+            List<Availability> availabilities = availabilityRepository
+                .findByDoctorIdAndDayOfWeekAndIsActiveTrueOrderByStartTimeAsc(doctorId, dayOfWeek);
+
+            boolean hasAvailability = !availabilities.isEmpty();
+
+            if (hasAvailability) {
+                logger.info("✅ Doctor {} has {} availability slot(s) on {}",
+                    doctorId, availabilities.size(), date);
+            } else {
+                logger.info("❌ Doctor {} has NO availability on {}", doctorId, date);
+            }
+
+            return hasAvailability;
+
+        } catch (Exception e) {
+            logger.error("Error checking availability for doctor {} on {}: {}",
+                doctorId, date, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ดึง availability ของแพทย์ในวันที่กำหนด (จาก date string)
+     * @param doctorId ID ของแพทย์
+     * @param date วันที่ในรูปแบบ "YYYY-MM-DD"
+     * @return List ของ Availability
+     */
+    public List<Availability> getDoctorAvailabilitiesByDate(Long doctorId, String date) {
+        try {
+            if (date == null || date.isEmpty()) {
+                return List.of();
+            }
+
+            java.time.LocalDate localDate = java.time.LocalDate.parse(date);
+            int dayOfWeek = localDate.getDayOfWeek().getValue();
+
+            return availabilityRepository
+                .findByDoctorIdAndDayOfWeekAndIsActiveTrueOrderByStartTimeAsc(doctorId, dayOfWeek);
+
+        } catch (Exception e) {
+            logger.error("Error getting availabilities for doctor {} on {}: {}",
+                doctorId, date, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
      * Validate availability input
      */
     private void validateAvailabilityInput(Integer dayOfWeek, LocalTime startTime, LocalTime endTime) {

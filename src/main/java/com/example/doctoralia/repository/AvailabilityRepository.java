@@ -66,6 +66,27 @@ public interface AvailabilityRepository extends JpaRepository<Availability, Long
 
 
     //หา availability ตาม ID และ doctor (สำหรับ security)
-
     Optional<Availability> findByIdAndDoctor(Long id, Doctor doctor);
+
+    //หาแพทย์ทั้งหมดที่ว่างในช่วงเวลาที่กำหนด
+    @Query("SELECT DISTINCT a.doctor FROM Availability a WHERE " +
+            "a.dayOfWeek = :dayOfWeek AND " +
+            "a.startTime <= :time AND " +
+            "a.endTime > :time AND " +
+            "a.isActive = true AND " +
+            "a.doctor.isActive = true")
+    List<Doctor> findDoctorsAvailableAtTime(@Param("dayOfWeek") Integer dayOfWeek,
+                                            @Param("time") LocalTime time);
+
+    //หาแพทย์ตาม specialty ที่ว่างในช่วงเวลาที่กำหนด
+    @Query("SELECT DISTINCT a.doctor FROM Availability a WHERE " +
+            "a.doctor.specialty.id = :specialtyId AND " +
+            "a.dayOfWeek = :dayOfWeek AND " +
+            "a.startTime <= :time AND " +
+            "a.endTime > :time AND " +
+            "a.isActive = true AND " +
+            "a.doctor.isActive = true")
+    List<Doctor> findDoctorsBySpecialtyAvailableAtTime(@Param("specialtyId") Long specialtyId,
+                                                        @Param("dayOfWeek") Integer dayOfWeek,
+                                                        @Param("time") LocalTime time);
 }

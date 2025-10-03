@@ -9,6 +9,7 @@ import com.example.doctoralia.model.Specialty;
 import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.SpecialtyRepository;
 import com.example.doctoralia.service.AppointmentService;
+import com.example.doctoralia.service.AvailabilityService;
 import com.example.doctoralia.service.DoctorService;
 import com.example.doctoralia.service.SpecialtyService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,9 @@ public class DoctorController {
 
     @Autowired
     private AppointmentService appointmentService;
+
+    @Autowired
+    private AvailabilityService availabilityService;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -431,10 +435,10 @@ public class DoctorController {
 
             if (doctors.isEmpty()) {
                 logger.warn("⚠️ No doctors found for specialty: {}", specialty);
-                return ResponseEntity.ok(Map.of(
-                    "message", "No doctors found for this specialty",
-                    "doctor", null
-                ));
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "No doctors found for this specialty");
+                response.put("doctor", null);
+                return ResponseEntity.ok(response);
             }
 
             // Filter active doctors only
@@ -444,13 +448,45 @@ public class DoctorController {
 
             if (doctors.isEmpty()) {
                 logger.warn("⚠️ No active doctors found for specialty: {}", specialty);
-                return ResponseEntity.ok(Map.of(
-                    "message", "No active doctors available for this specialty",
-                    "doctor", null
-                ));
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "No active doctors available for this specialty");
+                response.put("doctor", null);
+                return ResponseEntity.ok(response);
             }
 
             logger.info("✅ Found {} active doctors", doctors.size());
+
+            // 🔍 Filter doctors by availability on the selected date
+            if (date != null && !date.isEmpty()) {
+                logger.info("🔍 Filtering doctors by availability on date: {}", date);
+
+                List<Doctor> doctorsWithAvailability = doctors.stream()
+                    .filter(doctor -> {
+                        boolean hasAvailability = availabilityService.hasDoctorAvailabilityOnDate(
+                            doctor.getId(),
+                            date
+                        );
+                        if (!hasAvailability) {
+                            logger.info("  ⊘ Doctor {} has NO availability on {}",
+                                doctor.getDoctorName(), date);
+                        }
+                        return hasAvailability;
+                    })
+                    .toList();
+
+                if (doctorsWithAvailability.isEmpty()) {
+                    logger.warn("⚠️ No doctors available on {} for specialty: {}", date, specialty);
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("message", "No doctors have available time slots on this date. Please select another date.");
+                    response.put("doctor", null);
+                    response.put("totalDoctorsInSpecialty", doctors.size());
+                    response.put("doctorsAvailableOnDate", 0);
+                    return ResponseEntity.ok(response);
+                }
+
+                doctors = doctorsWithAvailability;
+                logger.info("✅ {} doctors have availability on {}", doctors.size(), date);
+            }
 
             // 🎯 Smart selection logic: เลือกแพทย์ที่มีคิวน้อยที่สุด
             Doctor selectedDoctor = null;
