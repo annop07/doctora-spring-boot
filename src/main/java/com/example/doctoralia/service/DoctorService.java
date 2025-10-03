@@ -161,6 +161,45 @@ public class DoctorService {
         return savedDoctor;
     }
 
+    //อัพเดท doctor (สำหรับ Admin แก้ไขข้อมูลหมอ)
+    public Doctor updateDoctor(Long doctorId, Long specialtyId, String licenseNumber,
+                              String bio, Integer experienceYears, BigDecimal consultationFee, String roomNumber) {
+
+        Optional<Doctor> doctorOpt = doctorRepository.findById(doctorId);
+        if (doctorOpt.isEmpty()) {
+            throw new IllegalArgumentException("Doctor not found with ID: " + doctorId);
+        }
+        Doctor doctor = doctorOpt.get();
+
+        // ตรวจสอบ specialty มีอยู่
+        if (specialtyId != null) {
+            Optional<Specialty> specialtyOpt = specialtyRepository.findById(specialtyId);
+            if (specialtyOpt.isEmpty()) {
+                throw new IllegalArgumentException("Specialty not found with ID: " + specialtyId);
+            }
+            doctor.setSpecialty(specialtyOpt.get());
+        }
+
+        // ตรวจสอบ license number ซ้ำ (ถ้าเปลี่ยน)
+        if (licenseNumber != null && !licenseNumber.equals(doctor.getLicenseNumber())) {
+            if (doctorRepository.existsByLicenseNumber(licenseNumber)) {
+                throw new IllegalArgumentException("License number already exists: " + licenseNumber);
+            }
+            doctor.setLicenseNumber(licenseNumber);
+        }
+
+        // อัพเดทข้อมูล
+        if (bio != null) doctor.setBio(bio);
+        if (experienceYears != null) doctor.setExperienceYears(experienceYears);
+        if (consultationFee != null) doctor.setConsultationFee(consultationFee);
+        if (roomNumber != null) doctor.setRoomNumber(roomNumber);
+
+        Doctor updatedDoctor = doctorRepository.save(doctor);
+        logger.info("Doctor updated by admin: {}", doctor.getLicenseNumber());
+
+        return updatedDoctor;
+    }
+
     //อัพเดท doctor profile (สำหรับหมอแก้ไขตัวเอง)
     public Doctor updateDoctorProfile(Long doctorId, String bio, Integer experienceYears,
                                       BigDecimal consultationFee, String roomNumber) {
@@ -181,6 +220,31 @@ public class DoctorService {
         logger.info("Doctor profile updated: {}", doctor.getLicenseNumber());
 
         return updatedDoctor;
+    }
+
+    //ลบหมอ (สำหรับ Admin) - ลบทั้ง Doctor และ User
+    @Transactional
+    public void deleteDoctor(Long doctorId) {
+        Optional<Doctor> doctorOpt = doctorRepository.findById(doctorId);
+        if (doctorOpt.isEmpty()) {
+            throw new IllegalArgumentException("Doctor not found with ID: " + doctorId);
+        }
+
+        Doctor doctor = doctorOpt.get();
+        User user = doctor.getUser();
+        String licenseNumber = doctor.getLicenseNumber();
+        String userEmail = user.getEmail();
+        Long userId = user.getId();
+
+        // ลบ Doctor (Appointments ที่เชื่อมกับ Doctor จะถูกลบด้วย CASCADE)
+        doctorRepository.deleteById(doctorId);
+        doctorRepository.flush(); // บังคับให้ลบทันที
+
+        // ลบ User หลังจากลบ Doctor แล้ว
+        userRepository.deleteById(userId);
+        userRepository.flush(); // บังคับให้ลบทันที
+
+        logger.info("Doctor and User deleted by admin - License: {}, Email: {}", licenseNumber, userEmail);
     }
 
     //เปิด/ปิดการใช้งานหมอ (admin)

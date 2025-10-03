@@ -30,7 +30,7 @@ public class SecurityConfig {
                         // Public endpoints (authentication not required)
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
-                        .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty").permitAll()
+                        .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty", "/api/doctors/smart-select").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/doctors/{id:[0-9]+}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/availability/doctor/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/appointments/doctor/*/booked-slots").permitAll()

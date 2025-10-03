@@ -2,10 +2,13 @@ package com.example.doctoralia.controller;
 
 import com.example.doctoralia.config.JwtUtils;
 import com.example.doctoralia.dto.DoctorStats;
+import com.example.doctoralia.model.Appointment;
+import com.example.doctoralia.model.AppointmentStatus;
 import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.model.Specialty;
 import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.SpecialtyRepository;
+import com.example.doctoralia.service.AppointmentService;
 import com.example.doctoralia.service.DoctorService;
 import com.example.doctoralia.service.SpecialtyService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.Random;
 
 @RestController
 @RequestMapping("/api/doctors")
@@ -35,6 +39,9 @@ public class DoctorController {
 
     @Autowired
     private SpecialtyService specialtyService;
+
+    @Autowired
+    private AppointmentService appointmentService;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -405,6 +412,120 @@ public class DoctorController {
                         doctor.getBio()) : null);
 
         return response;
+    }
+
+    /**
+     * Smart doctor selection API - เลือกแพทย์ที่มีคิวน้อยที่สุด
+     * GET /api/doctors/smart-select?specialty=...&date=YYYY-MM-DD
+     */
+    @GetMapping("/smart-select")
+    public ResponseEntity<?> smartSelectDoctor(
+            @RequestParam String specialty,
+            @RequestParam(required = false) String date) {
+
+        try {
+            logger.info("🎯 Smart select doctor for specialty: {} on date: {}", specialty, date);
+
+            // Get doctors by specialty
+            List<Doctor> doctors = doctorService.findBySpecialtyName(specialty);
+
+            if (doctors.isEmpty()) {
+                logger.warn("⚠️ No doctors found for specialty: {}", specialty);
+                return ResponseEntity.ok(Map.of(
+                    "message", "No doctors found for this specialty",
+                    "doctor", null
+                ));
+            }
+
+            // Filter active doctors only
+            doctors = doctors.stream()
+                    .filter(Doctor::getIsActive)
+                    .toList();
+
+            if (doctors.isEmpty()) {
+                logger.warn("⚠️ No active doctors found for specialty: {}", specialty);
+                return ResponseEntity.ok(Map.of(
+                    "message", "No active doctors available for this specialty",
+                    "doctor", null
+                ));
+            }
+
+            logger.info("✅ Found {} active doctors", doctors.size());
+
+            // 🎯 Smart selection logic: เลือกแพทย์ที่มีคิวน้อยที่สุด
+            Doctor selectedDoctor = null;
+
+            if (date != null && !date.isEmpty()) {
+                // กรณีมี date: เช็คคิวของแต่ละแพทย์ในวันนั้น
+                logger.info("📊 Checking queue for each doctor on date: {}", date);
+
+                Map<Doctor, Integer> doctorQueueMap = new HashMap<>();
+
+                for (Doctor doctor : doctors) {
+                    try {
+                        List<Appointment> appointments = appointmentService.getAppointmentsByDoctorAndDate(
+                            doctor.getId(),
+                            date
+                        );
+
+                        // นับเฉพาะ PENDING และ CONFIRMED
+                        long queueCount = appointments.stream()
+                            .filter(apt -> apt.getStatus() == AppointmentStatus.PENDING ||
+                                          apt.getStatus() == AppointmentStatus.CONFIRMED)
+                            .count();
+
+                        doctorQueueMap.put(doctor, (int) queueCount);
+                        logger.info("  - {} (ID: {}): {} appointments",
+                            doctor.getDoctorName(), doctor.getId(), queueCount);
+
+                    } catch (Exception e) {
+                        logger.warn("  - Error checking queue for doctor {}: {}",
+                            doctor.getDoctorName(), e.getMessage());
+                        doctorQueueMap.put(doctor, 0);
+                    }
+                }
+
+                // หาแพทย์ที่มีคิวน้อยที่สุด
+                int minQueue = doctorQueueMap.values().stream()
+                    .min(Integer::compare)
+                    .orElse(0);
+
+                // กรณีมีหลายคนคิวเท่ากัน -> สุ่มเลือก
+                List<Doctor> doctorsWithMinQueue = doctorQueueMap.entrySet().stream()
+                    .filter(entry -> entry.getValue() == minQueue)
+                    .map(Map.Entry::getKey)
+                    .toList();
+
+                logger.info("📌 {} doctors have minimum queue ({} appointments)",
+                    doctorsWithMinQueue.size(), minQueue);
+
+                Random random = new Random();
+                selectedDoctor = doctorsWithMinQueue.get(random.nextInt(doctorsWithMinQueue.size()));
+
+                logger.info("🎯 Selected doctor: {} (ID: {}) with {} appointments on {}",
+                    selectedDoctor.getDoctorName(), selectedDoctor.getId(), minQueue, date);
+
+            } else {
+                // กรณีไม่มี date: สุ่มเลือก
+                logger.info("🎲 No date provided, selecting randomly");
+                Random random = new Random();
+                selectedDoctor = doctors.get(random.nextInt(doctors.size()));
+                logger.info("🎯 Selected doctor: {} (ID: {})",
+                    selectedDoctor.getDoctorName(), selectedDoctor.getId());
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Doctor selected successfully");
+            response.put("doctor", convertToSimpleDoctorResponse(selectedDoctor));
+            response.put("totalDoctorsInSpecialty", doctors.size());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("❌ Error in smart doctor selection:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to select doctor: " + e.getMessage()));
+        }
     }
 
     // Helper method for simple doctor response (for lists)

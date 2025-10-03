@@ -64,6 +64,49 @@ public class AdminController {
         }
     }
 
+    //อัพเดตข้อมูลหมอ
+    @PutMapping("/doctors/{id}")
+    public ResponseEntity<?> updateDoctor(@PathVariable Long id,
+                                         @Valid @RequestBody UpdateDoctorRequest request) {
+        try {
+            Doctor doctor = doctorService.updateDoctor(
+                    id,
+                    request.getSpecialtyId(),
+                    request.getLicenseNumber(),
+                    request.getBio(),
+                    request.getExperienceYears(),
+                    request.getConsultationFee(),
+                    request.getRoomNumber()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Doctor updated successfully!");
+            response.put("doctorId", doctor.getId());
+            response.put("doctorName", doctor.getDoctorName());
+            response.put("licenseNumber", doctor.getLicenseNumber());
+            response.put("specialty", doctor.getSpecialtyName());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error updating doctor: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
+    //ลบหมอ
+    @DeleteMapping("/doctors/{id}")
+    public ResponseEntity<?> deleteDoctor(@PathVariable Long id) {
+        try {
+            doctorService.deleteDoctor(id);
+            return ResponseEntity.ok(new MessageResponse("Doctor deleted successfully!"));
+        } catch (Exception e) {
+            logger.error("Error deleting doctor: ", e);
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: " + e.getMessage()));
+        }
+    }
+
     //เปิด/ปิดการใช้งานหมอ
     @PutMapping("/doctors/{id}/status")
     public ResponseEntity<?> toggleDoctorStatus(@PathVariable Long id,
