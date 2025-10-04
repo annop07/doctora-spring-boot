@@ -124,8 +124,14 @@ public class DoctorService {
         }
 
         User user = userOpt.get();
+        // Allow any user role to be promoted to doctor (PATIENT, DOCTOR, etc.)
+        // No role restriction - Admin can promote any user
+
+        // Update user role to DOCTOR if it's not already
         if (!user.getRole().equals(UserRole.DOCTOR)) {
-            throw new IllegalArgumentException("User must have DOCTOR role");
+            logger.info("Promoting user {} from {} to DOCTOR role", user.getEmail(), user.getRole());
+            user.setRole(UserRole.DOCTOR);
+            userRepository.save(user);
         }
 
         //เช็ค user ยังไม่มี doctor profile
