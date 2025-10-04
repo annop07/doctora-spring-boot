@@ -1,12 +1,13 @@
 package com.example.doctoralia.controller;
 
+import com.example.doctoralia.dto.DoctorRecommendationRequest;
 import com.example.doctoralia.dto.DoctorStats;
 import com.example.doctoralia.model.Doctor;
 import com.example.doctoralia.model.Specialty;
-import com.example.doctoralia.repository.DoctorRepository;
-import com.example.doctoralia.repository.SpecialtyRepository;
+import com.example.doctoralia.service.DoctorRecommendationService;
 import com.example.doctoralia.service.DoctorService;
 import com.example.doctoralia.service.SpecialtyService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ public class DoctorController {
     @Autowired
     private SpecialtyService specialtyService;
 
+    @Autowired
+    private DoctorRecommendationService doctorRecommendationService;
+
 
     //ค้นหาหมอทั้งหมด
     @GetMapping
@@ -50,7 +54,7 @@ public class DoctorController {
             Page<Doctor> doctors;
 
             if (name != null || specialty != null || minFee != null || maxFee != null) {
-                doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size);
+                doctors = doctorService.searchDoctors(name, specialty, minFee, maxFee, page, size, sort);
             } else {
                 doctors = doctorService.getAllDoctors(page, size, sort);
             }
@@ -165,6 +169,42 @@ public class DoctorController {
         }
     }
 
+    // แนะนำแพทย์อัตโนมัติ (Public API)
+    @PostMapping("/recommend")
+    public ResponseEntity<?> recommendDoctors(@Valid @RequestBody DoctorRecommendationRequest request) {
+        try {
+            logger.info("Received doctor recommendation request: {}", request);
+
+            List<Doctor> recommendedDoctors = doctorRecommendationService.recommendDoctors(
+                    request.getSpecialtyId(),
+                    request.getSymptoms(),
+                    request.getMaxFee(),
+                    request.getMaxExperienceYears(),
+                    request.getPreferredGender(),
+                    request.getMinRating()
+            );
+
+            List<Map<String, Object>> response = recommendedDoctors.stream()
+                    .map(this::convertToDoctorRecommendationResponse)
+                    .toList();
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("doctors", response);
+            result.put("totalFound", response.size());
+            result.put("criteria", request);
+            result.put("message", response.isEmpty() ?
+                "ไม่พบแพทย์ที่ตรงกับเงื่อนไข กรุณาปรับเปลี่ยนเงื่อนไขการค้นหา" :
+                "พบแพทย์ที่แนะนำจำนวน " + response.size() + " คน");
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error recommending doctors: ", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Error recommending doctors: " + e.getMessage()));
+        }
+    }
+
     // Helper methods สำหรับแปลง Entity เป็น Response
     private Map<String, Object> convertToDoctorResponse(Doctor doctor) {
         Map<String, Object> response = new HashMap<>();
@@ -199,6 +239,32 @@ public class DoctorController {
         response.put("description", specialty.getDescription());
 
         return response;
+    }
+
+    private Map<String, Object> convertToDoctorRecommendationResponse(Doctor doctor) {
+        Map<String, Object> response = convertToDoctorResponse(doctor);
+
+        // เพิ่มข้อมูลเพิ่มเติมสำหรับระบบแนะนำ
+        response.put("isRecommended", true);
+        response.put("recommendationReason", generateRecommendationReason(doctor));
+
+        return response;
+    }
+
+    private String generateRecommendationReason(Doctor doctor) {
+        StringBuilder reason = new StringBuilder();
+
+        if (doctor.getExperienceYears() != null && doctor.getExperienceYears() >= 10) {
+            reason.append("ประสบการณ์สูง ");
+        }
+
+        if (doctor.getConsultationFee() != null && doctor.getConsultationFee().compareTo(new BigDecimal(1000)) <= 0) {
+            reason.append("ค่าบริการเหมาะสม ");
+        }
+
+        reason.append("เชี่ยวชาญด้าน").append(doctor.getSpecialty().getName());
+
+        return reason.toString().trim();
     }
 }
 

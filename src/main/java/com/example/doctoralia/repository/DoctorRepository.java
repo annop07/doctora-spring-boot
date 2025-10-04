@@ -60,8 +60,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
             "     OR LOWER(u.last_name) LIKE LOWER('%' || CAST(:name AS TEXT) || '%'))) " +
             "AND (:specialtyId IS NULL OR s.id = :specialtyId) " +
             "AND (:minFee IS NULL OR d.consultation_fee >= :minFee) " +
-            "AND (:maxFee IS NULL OR d.consultation_fee <= :maxFee) " +
-            "ORDER BY u.first_name",
+            "AND (:maxFee IS NULL OR d.consultation_fee <= :maxFee)",
             nativeQuery = true)
     Page<Doctor> findDoctorsWithFilters(@Param("name") String name,
                                         @Param("specialtyId") Long specialtyId,

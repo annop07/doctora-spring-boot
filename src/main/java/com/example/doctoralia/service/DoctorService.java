@@ -39,7 +39,8 @@ public class DoctorService {
 
     //ค้นหาหมอทั้งหมด
     public Page<Doctor> getAllDoctors(int page, int size, String sortBy) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+        Sort sort = parseSortParameter(sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
         return doctorRepository.findByIsActiveTrue(pageable);
     }
 
@@ -47,9 +48,45 @@ public class DoctorService {
      * ค้นหาหมอขั้นสูง (ชื่อ + แผนก + ค่าตรวจ)
      */
     public Page<Doctor> searchDoctors(String name, Long specialtyId, BigDecimal minFee, BigDecimal maxFee,
-                                      int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+                                      int page, int size, String sortBy) {
+        Sort sort = parseSortParameter(sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
         return doctorRepository.findDoctorsWithFilters(name, specialtyId, minFee, maxFee, pageable);
+    }
+
+    /**
+     * Parse sort parameter (e.g., "id,desc" -> Sort.by(Direction.DESC, "id"))
+     */
+    private Sort parseSortParameter(String sortBy) {
+        if (sortBy == null || sortBy.trim().isEmpty()) {
+            return Sort.by("id");
+        }
+
+        String[] parts = sortBy.split(",");
+        String property = parts[0].trim();
+
+        // Map frontend property names to actual entity properties
+        switch (property) {
+            case "name":
+                property = "user.firstName"; // Sort by user's first name
+                break;
+            case "experienceYears":
+                property = "experienceYears";
+                break;
+            case "consultationFee":
+                property = "consultationFee";
+                break;
+            case "id":
+            default:
+                property = "id";
+                break;
+        }
+
+        if (parts.length > 1 && "desc".equalsIgnoreCase(parts[1].trim())) {
+            return Sort.by(Sort.Direction.DESC, property);
+        } else {
+            return Sort.by(Sort.Direction.ASC, property);
+        }
     }
 
     //ค้นหาหมอตาม ID
