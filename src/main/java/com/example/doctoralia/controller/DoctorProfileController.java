@@ -125,6 +125,15 @@ public class DoctorProfileController {
 
             logger.info("Doctor profile updated: {}", doctor.getLicenseNumber());
 
+            // Reload doctor profile to get updated data
+            Optional<Doctor> updatedDoctorOpt = doctorService.findByUserId(userId);
+            if (updatedDoctorOpt.isPresent()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Profile updated successfully!");
+                response.put("doctor", convertToDoctorProfileResponse(updatedDoctorOpt.get()));
+                return ResponseEntity.ok(response);
+            }
+
             return ResponseEntity.ok(new MessageResponse("Profile updated successfully!"));
         } catch (Exception e) {
             logger.error("Error updating doctor profile: ", e);
