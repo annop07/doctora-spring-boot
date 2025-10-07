@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "java -jar target/Doctoralia-0.0.1-SNAPSHOT.jar"
+startCommand = "JDBC_DATABASE_URL=$(echo $DATABASE_URL | sed 's/^postgresql:/jdbc:postgresql:/') java -jar target/Doctoralia-0.0.1-SNAPSHOT.jar"
 healthcheckPath = "/api/specialties"
 healthcheckTimeout = 300
 numReplicas = 1

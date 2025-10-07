@@ -1,1 +1,1 @@
-web: java -Dserver.port=$PORT -jar target/Doctoralia-0.0.1-SNAPSHOT.jar
+web: JDBC_DATABASE_URL=$(echo $DATABASE_URL | sed 's/^postgresql:/jdbc:postgresql:/') java -Dserver.port=$PORT -jar target/Doctoralia-0.0.1-SNAPSHOT.jar
