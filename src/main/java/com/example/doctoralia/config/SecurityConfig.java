@@ -27,6 +27,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
+                        // Health check endpoints (for Railway/monitoring)
+                        .requestMatchers("/api/health", "/api/ready").permitAll()
+
                         // Public endpoints (authentication not required)
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
