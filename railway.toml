@@ -2,10 +2,9 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "java -jar target/Doctoralia-0.0.1-SNAPSHOT.jar"
-healthcheckPath = "/api/specialties"
-healthcheckTimeout = 300
-numReplicas = 1
+startCommand = "java -Xmx512m -Xms256m -jar target/Doctoralia-0.0.1-SNAPSHOT.jar"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 180
 restartPolicyMaxRetries = 10
 
 # Environment variables
@@ -13,5 +12,7 @@ restartPolicyMaxRetries = 10
 name = "CORS_ORIGINS"
 value = "https://frontenddoctora-production-0742.up.railway.app"
 
-# Using custom DatabaseConfig class to handle Railway's PG variables directly
-# Railway automatically provides: PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD
+# CRITICAL: Ensure Spring Boot starts on Railway's PORT
+[[deploy.environmentVariables]]
+name = "SERVER_PORT"
+value = "$PORT"
