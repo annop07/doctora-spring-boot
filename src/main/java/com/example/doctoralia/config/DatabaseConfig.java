@@ -49,18 +49,24 @@ public class DatabaseConfig {
         if (databaseUrl != null && !databaseUrl.isEmpty()) {
             try {
                 URI uri = new URI(databaseUrl);
-                String scheme = uri.getScheme();
                 
-                if ("postgresql".equals(scheme)) {
-                    // Convert postgresql:// to jdbc:postgresql://
-                    jdbcUrl = "jdbc:" + databaseUrl;
+                // Extract components from URI
+                String hostName = uri.getHost();
+                int portNumber = uri.getPort() != -1 ? uri.getPort() : 5432;
+                String databaseName = uri.getPath().substring(1); // Remove leading '/'
+                
+                // Build JDBC URL without user info in the URL
+                jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", hostName, portNumber, databaseName);
+                
+                // Extract username and password from userInfo
+                if (uri.getUserInfo() != null && uri.getUserInfo().contains(":")) {
+                    String[] userInfoParts = uri.getUserInfo().split(":", 2);
+                    finalUsername = userInfoParts[0];
+                    finalPassword = userInfoParts[1];
                 } else {
-                    jdbcUrl = databaseUrl;
+                    finalUsername = username;
+                    finalPassword = password;
                 }
-                
-                finalUsername = uri.getUserInfo() != null ? uri.getUserInfo().split(":")[0] : username;
-                finalPassword = uri.getUserInfo() != null && uri.getUserInfo().contains(":") 
-                    ? uri.getUserInfo().split(":")[1] : password;
                 
                 System.out.println("Using DATABASE_URL");
             } catch (Exception e) {
