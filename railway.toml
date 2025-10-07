@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "java -jar target/doctoralia-0.0.1-SNAPSHOT.jar"
+healthcheckPath = "/api/specialties"
+healthcheckTimeout = 300
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
