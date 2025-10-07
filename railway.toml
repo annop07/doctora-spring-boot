@@ -12,3 +12,28 @@ restartPolicyMaxRetries = 10
 [[deploy.environmentVariables]]
 name = "CORS_ORIGINS"
 value = "https://frontenddoctora-production-0742.up.railway.app"
+
+# Disable DATABASE_URL automatic configuration - use explicit Spring properties
+[[deploy.environmentVariables]]
+name = "SPRING_DATASOURCE_URL"
+value = "jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}"
+
+[[deploy.environmentVariables]]
+name = "SPRING_DATASOURCE_USERNAME"
+value = "${PGUSER}"
+
+[[deploy.environmentVariables]]
+name = "SPRING_DATASOURCE_PASSWORD"
+value = "${PGPASSWORD}"
+
+[[deploy.environmentVariables]]
+name = "SPRING_FLYWAY_URL"
+value = "jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}"
+
+[[deploy.environmentVariables]]
+name = "SPRING_FLYWAY_USER"
+value = "${PGUSER}"
+
+[[deploy.environmentVariables]]
+name = "SPRING_FLYWAY_PASSWORD"
+value = "${PGPASSWORD}"
