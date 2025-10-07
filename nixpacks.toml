@@ -2,7 +2,10 @@
 nixPkgs = ["...", "openjdk17"]
 
 [phases.build]
-cmds = ["./mvnw clean package -DskipTests"]
+cmds = [
+  "./mvnw clean package -DskipTests",
+  "ls -la target/"
+]
 
 [start]
-cmd = "java -Dserver.port=$PORT -jar target/doctoralia-0.0.1-SNAPSHOT.jar"
+cmd = "java -Dserver.port=$PORT -jar target/Doctoralia-0.0.1-SNAPSHOT.jar"
