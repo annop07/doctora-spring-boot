@@ -1,0 +1,62 @@
+package com.example.doctoralia.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+public class SecurityConfig {
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        System.out.println("🚀 SecurityConfig is loading...");
+
+        http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authz -> authz
+                        // Health check endpoints (for Railway/monitoring)
+                        .requestMatchers("/api/health", "/api/ready").permitAll()
+
+                        // Public endpoints (authentication not required)
+                        .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/specialties", "/api/specialties/**").permitAll()
+                        .requestMatchers("/api/doctors", "/api/doctors/search", "/api/doctors/specialty/**", "/api/doctors/stats", "/api/doctors/active", "/api/doctors/by-specialty", "/api/doctors/smart-select").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/doctors/{id:[0-9]+}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/availability/doctor/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/doctor/*/booked-slots").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+
+                        // Protected endpoints (authentication required)
+                        .requestMatchers("/api/doctors/me/**").authenticated()
+                        .requestMatchers("/api/users/**").authenticated()
+
+                        // ⭐ Appointment endpoints - require authentication
+                        .requestMatchers("/api/appointments/**").authenticated()
+
+                        // Admin only endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // Default - require authentication for everything else
+                        .anyRequest().authenticated()
+                )
+                // Add JWT filter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        System.out.println("✅ SecurityConfig loaded successfully!");
+
+        return http.build();
+    }
+}
