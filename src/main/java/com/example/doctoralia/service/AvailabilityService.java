@@ -162,7 +162,8 @@ public class AvailabilityService {
      * ดึง availability ของหมอในวันที่กำหนด
      */
     public List<Availability> getDoctorAvailabilitiesByDay(Long doctorId, Integer dayOfWeek) {
-        return availabilityRepository.findByDoctorIdAndDayOfWeekAndIsActiveTrueOrderByStartTimeAsc(doctorId, dayOfWeek);
+        return availabilityRepository
+                .findByDoctorIdAndDayOfWeekAndIsActiveTrueOrderByStartTimeAsc(doctorId, dayOfWeek);
     }
 
     /**
