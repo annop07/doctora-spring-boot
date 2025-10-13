@@ -2,10 +2,7 @@ package com.example.doctoralia.controller;
 
 import com.example.doctoralia.config.JwtUtils;
 import com.example.doctoralia.dto.DoctorStats;
-import com.example.doctoralia.model.Appointment;
-import com.example.doctoralia.model.AppointmentStatus;
-import com.example.doctoralia.model.Doctor;
-import com.example.doctoralia.model.Specialty;
+import com.example.doctoralia.model.*;
 import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.SpecialtyRepository;
 import com.example.doctoralia.service.AppointmentService;
@@ -25,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.Random;
 
