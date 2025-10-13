@@ -239,8 +239,8 @@ public class AvailabilityController {
         Map<String, Object> response = new HashMap<>();
         response.put("dayOfWeek", availability.getDayOfWeek());
         response.put("dayName", availability.getDayName());
-        response.put("startTime", availability.getStartTime());
-        response.put("endTime", availability.getEndTime());
+        response.put("startTime", availability.getStartTime().toString());
+        response.put("endTime", availability.getEndTime().toString());
         response.put("timeRange", availability.getTimeRange());
         return response;
     }
