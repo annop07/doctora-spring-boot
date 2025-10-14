@@ -2,10 +2,7 @@ package com.example.doctoralia.controller;
 
 import com.example.doctoralia.config.JwtUtils;
 import com.example.doctoralia.dto.DoctorStats;
-import com.example.doctoralia.model.Appointment;
-import com.example.doctoralia.model.AppointmentStatus;
-import com.example.doctoralia.model.Doctor;
-import com.example.doctoralia.model.Specialty;
+import com.example.doctoralia.model.*;
 import com.example.doctoralia.repository.DoctorRepository;
 import com.example.doctoralia.repository.SpecialtyRepository;
 import com.example.doctoralia.service.AppointmentService;
@@ -25,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.Random;
 
@@ -419,7 +418,7 @@ public class DoctorController {
     }
 
     /**
-     * Smart doctor selection API - เลือกแพทย์ที่มีคิวน้อยที่สุด
+     * Smart doctor selection API - เลือกแพทย์ที่มีเวลาว่างมากที่สุดในวันที่เลือก
      * GET /api/doctors/smart-select?specialty=...&date=YYYY-MM-DD
      */
     @GetMapping("/smart-select")
@@ -456,23 +455,28 @@ public class DoctorController {
 
             logger.info("✅ Found {} active doctors", doctors.size());
 
-            // 🔍 Filter doctors by availability on the selected date
+            // ✅ NEW ALGORITHM: เลือกแพทย์ที่มีเวลาว่างมากที่สุด
             if (date != null && !date.isEmpty()) {
-                logger.info("🔍 Filtering doctors by availability on date: {}", date);
+                logger.info("🔍 Calculating available time for each doctor on date: {}", date);
 
+                // Parse date to get day of week
+                LocalDate localDate = LocalDate.parse(date);
+                int dayOfWeek = localDate.getDayOfWeek().getValue(); // 1=Monday, 7=Sunday
+
+                // Filter doctors by availability on the selected date
                 List<Doctor> doctorsWithAvailability = doctors.stream()
-                    .filter(doctor -> {
-                        boolean hasAvailability = availabilityService.hasDoctorAvailabilityOnDate(
-                            doctor.getId(),
-                            date
-                        );
-                        if (!hasAvailability) {
-                            logger.info("  ⊘ Doctor {} has NO availability on {}",
-                                doctor.getDoctorName(), date);
-                        }
-                        return hasAvailability;
-                    })
-                    .toList();
+                        .filter(doctor -> {
+                            boolean hasAvailability = availabilityService.hasDoctorAvailabilityOnDate(
+                                    doctor.getId(),
+                                    date
+                            );
+                            if (!hasAvailability) {
+                                logger.info("  ⊘ Doctor {} has NO availability on {}",
+                                        doctor.getDoctorName(), date);
+                            }
+                            return hasAvailability;
+                        })
+                        .toList();
 
                 if (doctorsWithAvailability.isEmpty()) {
                     logger.warn("⚠️ No doctors available on {} for specialty: {}", date, specialty);
@@ -486,76 +490,108 @@ public class DoctorController {
 
                 doctors = doctorsWithAvailability;
                 logger.info("✅ {} doctors have availability on {}", doctors.size(), date);
-            }
 
-            // 🎯 Smart selection logic: เลือกแพทย์ที่มีคิวน้อยที่สุด
-            Doctor selectedDoctor = null;
-
-            if (date != null && !date.isEmpty()) {
-                // กรณีมี date: เช็คคิวของแต่ละแพทย์ในวันนั้น
-                logger.info("📊 Checking queue for each doctor on date: {}", date);
-
-                Map<Doctor, Integer> doctorQueueMap = new HashMap<>();
+                // ✅ Calculate actual available time for each doctor
+                Map<Doctor, Integer> doctorAvailableMinutes = new HashMap<>();
 
                 for (Doctor doctor : doctors) {
                     try {
+                        // Get availability slots for this doctor on this day
+                        List<Availability> availabilities = availabilityService
+                                .getDoctorAvailabilitiesByDay(doctor.getId(), dayOfWeek);
+
+                        // Calculate total scheduled minutes from availability
+                        int totalScheduledMinutes = 0;
+                        for (Availability availability : availabilities) {
+                            LocalTime start = availability.getStartTime();
+                            LocalTime end = availability.getEndTime();
+                            totalScheduledMinutes += (int) java.time.Duration.between(start, end).toMinutes();
+                        }
+
+                        // Get booked appointments for this doctor on this date
                         List<Appointment> appointments = appointmentService.getAppointmentsByDoctorAndDate(
-                            doctor.getId(),
-                            date
+                                doctor.getId(),
+                                date
                         );
 
-                        // นับเฉพาะ PENDING และ CONFIRMED
-                        long queueCount = appointments.stream()
-                            .filter(apt -> apt.getStatus() == AppointmentStatus.PENDING ||
-                                          apt.getStatus() == AppointmentStatus.CONFIRMED)
-                            .count();
+                        // Calculate booked minutes (only PENDING and CONFIRMED)
+                        int bookedMinutes = appointments.stream()
+                                .filter(apt -> apt.getStatus() == AppointmentStatus.PENDING ||
+                                        apt.getStatus() == AppointmentStatus.CONFIRMED)
+                                .mapToInt(apt -> apt.getDurationMinutes() != null ? apt.getDurationMinutes() : 30)
+                                .sum();
 
-                        doctorQueueMap.put(doctor, (int) queueCount);
-                        logger.info("  - {} (ID: {}): {} appointments",
-                            doctor.getDoctorName(), doctor.getId(), queueCount);
+                        // Calculate actual available minutes
+                        int availableMinutes = totalScheduledMinutes - bookedMinutes;
+
+                        doctorAvailableMinutes.put(doctor, Math.max(0, availableMinutes));
+
+                        logger.info("  📊 {} (ID: {}): Scheduled={}min, Booked={}min, Available={}min",
+                                doctor.getDoctorName(), doctor.getId(),
+                                totalScheduledMinutes, bookedMinutes, availableMinutes);
 
                     } catch (Exception e) {
-                        logger.warn("  - Error checking queue for doctor {}: {}",
-                            doctor.getDoctorName(), e.getMessage());
-                        doctorQueueMap.put(doctor, 0);
+                        logger.warn("  ⚠️ Error calculating time for doctor {}: {}",
+                                doctor.getDoctorName(), e.getMessage());
+                        doctorAvailableMinutes.put(doctor, 0);
                     }
                 }
 
-                // หาแพทย์ที่มีคิวน้อยที่สุด
-                int minQueue = doctorQueueMap.values().stream()
-                    .min(Integer::compare)
-                    .orElse(0);
+                // ✅ Find doctor(s) with maximum available time
+                int maxAvailableMinutes = doctorAvailableMinutes.values().stream()
+                        .max(Integer::compare)
+                        .orElse(0);
 
-                // กรณีมีหลายคนคิวเท่ากัน -> สุ่มเลือก
-                List<Doctor> doctorsWithMinQueue = doctorQueueMap.entrySet().stream()
-                    .filter(entry -> entry.getValue() == minQueue)
-                    .map(Map.Entry::getKey)
-                    .toList();
+                if (maxAvailableMinutes <= 0) {
+                    logger.warn("⚠️ No available time slots found for any doctor on {}", date);
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("message", "All doctors are fully booked on this date. Please select another date.");
+                    response.put("doctor", null);
+                    return ResponseEntity.ok(response);
+                }
 
-                logger.info("📌 {} doctors have minimum queue ({} appointments)",
-                    doctorsWithMinQueue.size(), minQueue);
+                // Get all doctors with maximum available time
+                List<Doctor> doctorsWithMaxTime = doctorAvailableMinutes.entrySet().stream()
+                        .filter(entry -> entry.getValue() == maxAvailableMinutes)
+                        .map(Map.Entry::getKey)
+                        .toList();
 
+                logger.info("🎯 {} doctor(s) have maximum available time: {} minutes",
+                        doctorsWithMaxTime.size(), maxAvailableMinutes);
+
+                // If multiple doctors have same max time, choose randomly
                 Random random = new Random();
-                selectedDoctor = doctorsWithMinQueue.get(random.nextInt(doctorsWithMinQueue.size()));
+                Doctor selectedDoctor = doctorsWithMaxTime.get(random.nextInt(doctorsWithMaxTime.size()));
 
-                logger.info("🎯 Selected doctor: {} (ID: {}) with {} appointments on {}",
-                    selectedDoctor.getDoctorName(), selectedDoctor.getId(), minQueue, date);
+                logger.info("✅ Selected doctor: {} (ID: {}) with {} minutes available on {}",
+                        selectedDoctor.getDoctorName(), selectedDoctor.getId(),
+                        maxAvailableMinutes, date);
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Doctor selected successfully based on maximum available time");
+                response.put("doctor", convertToSimpleDoctorResponse(selectedDoctor));
+                response.put("totalDoctorsInSpecialty", doctors.size());
+                response.put("availableMinutes", maxAvailableMinutes);
+                response.put("availableHours", String.format("%.1f", maxAvailableMinutes / 60.0));
+
+                return ResponseEntity.ok(response);
 
             } else {
-                // กรณีไม่มี date: สุ่มเลือก
+                // No date provided - random selection (fallback)
                 logger.info("🎲 No date provided, selecting randomly");
                 Random random = new Random();
-                selectedDoctor = doctors.get(random.nextInt(doctors.size()));
+                Doctor selectedDoctor = doctors.get(random.nextInt(doctors.size()));
+
                 logger.info("🎯 Selected doctor: {} (ID: {})",
-                    selectedDoctor.getDoctorName(), selectedDoctor.getId());
+                        selectedDoctor.getDoctorName(), selectedDoctor.getId());
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Doctor selected successfully");
+                response.put("doctor", convertToSimpleDoctorResponse(selectedDoctor));
+                response.put("totalDoctorsInSpecialty", doctors.size());
+
+                return ResponseEntity.ok(response);
             }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Doctor selected successfully");
-            response.put("doctor", convertToSimpleDoctorResponse(selectedDoctor));
-            response.put("totalDoctorsInSpecialty", doctors.size());
-
-            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             logger.error("❌ Error in smart doctor selection:", e);
@@ -563,7 +599,6 @@ public class DoctorController {
                     .body(Map.of("error", "Failed to select doctor: " + e.getMessage()));
         }
     }
-
     // Helper method for simple doctor response (for lists)
     private Map<String, Object> convertToSimpleDoctorResponse(Doctor doctor) {
         Map<String, Object> response = new HashMap<>();
